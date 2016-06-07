@@ -1,0 +1,137 @@
+#!/usr/bin/env python
+
+"""
+A simple script to make the stiff call for the ME Pipeline that
+will create the ptif files
+"""
+
+import os
+import sys
+import argparse
+import time
+from despymisc.miscutils import elapsed_time
+
+PTIF_BANDS = ['g','r','i','z','Y','det','u']
+STIFF_EXE = 'stiff'
+BKLINE = "\\\n"
+DETNAME = 'det'
+
+# Borrowed from multiepoch.utils
+def arglist2dict(inputlist,separator='='):
+    """
+    Re-shape a list of items ['VAL1=value1', 'VAL2=value2', etc]  into a dictionary
+    dict['VAL1'] = value1, dict['VAL2'] = values, etc
+    This is used to pass optional command-line argument option to the astromatic codes.
+    
+    We Re-pack as a dictionary the astromatic extras fron the command-line, if run as script
+    """
+    return dict( [ inputlist[index].split(separator) for index, item in enumerate(inputlist) ] )
+
+
+def read_bandlist(bandlist,verb=False):
+
+    bandnames = {}
+    if verb:
+        print "# Reading bandlist from file: %s" % bandlist
+    for line in open(bandlist).readlines():
+        if line[0] == "#":
+            continue
+        band = line.split()[1]
+        bandnames[band] = line.split()[0]
+
+    return bandnames
+
+def read_maxlevels(levellist,verb=False):  
+    if verb:
+        print "# Reading MAX_LEVEL list from file: %s" % levellist
+
+    levels = {}
+    for line in open(levellist).readlines():
+        if line[0] == "#":
+            continue
+        band = line.split()[0]
+        levels[band] = line.split()[1]
+
+    return levels
+
+def build_call(bandanames, maxlevels, **args):
+
+    if args['verb']:
+        print "# Build call PTIF call"
+    
+    # Make sure that we use the intersection of both lists
+    bands_present = list( set(bandanames.keys()) & set(maxlevels.keys()) )
+    filenames = ["%s'[0]'" % bandnames[band] for band in PTIF_BANDS if band in bands_present]
+    maxvalues = [maxlevels[band] for band in PTIF_BANDS if band in bands_present]
+
+    cmd_list = []
+    cmd_list.append("%s" % STIFF_EXE)
+    cmd_list.extend(filenames)
+    cmd_list.append("-c %s" % args['config_stiff'])
+
+    pars = {}
+    pars['MAX_LEVEL']    = ','.join(maxvalues)
+    pars['OUTFILE_NAME'] = args['OUTFILE_NAME']
+    pars['NTHREADS']     = args['NTHREADS']
+
+    # Update and overide the parameters from the command line
+    pars.update(args['stiff_parameters'])
+
+    # Go over all of the modifications
+    for param,value in pars.items():
+        cmd_list.append("-%s %s" % (param,value))
+
+    
+    if args['verb']:
+        print "# Will execute:"
+        print "%s\n" % BKLINE.join(cmd_list)
+
+    if not args['dryrun']:
+        cmd_exe = "%s\n" % " ".join(cmd_list)
+        os.system(cmd_exe)
+
+    return 
+    
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Call stiff for ptif creatio for the Multi-epoch pipeline")
+    parser.add_argument("bandlist", action="store",default=None,
+                        help="List of coadd fits files to use")
+    parser.add_argument("--detimage", action="store",default=None, required=True,
+                        help="The name of the detection image")
+    parser.add_argument("-OUTFILE_NAME", action="store",default=None, required=True,
+                        help="The name of the outfile_name image file")
+    parser.add_argument("-c","--config_stiff", action="store",default=None, required=True,
+                        help="Stiff Ptif config file")
+    parser.add_argument("--config_maxlevel", action="store",default=None, required=True,
+                        help="MAX_LEVEL config file")
+    parser.add_argument("--verb", action="store_true",default=False,
+                        help="Verbose?")
+    parser.add_argument("-NTHREADS", action="store",default=1, 
+                        help="NTHREADS to use")
+    parser.add_argument("--dryrun", action="store_true",default=False,
+                        help="Print and exit?")
+    parser.add_argument("--stiff_parameters", action="store", nargs='+', default=[],
+                        help="A list of parameters to pass to Stiff")
+    
+    args = parser.parse_args()
+
+    # Parse the list of stiff_parameters into a dictionary
+    args.stiff_parameters = arglist2dict(args.stiff_parameters,separator='=')
+
+    t0 = time.time()
+
+    # Read in the list and load it into a dictionary
+    bandnames = read_bandlist(args.bandlist,verb=args.verb)
+    # Append the detname to the dictionary
+    bandnames[DETNAME] = args.detimage
+    
+    # Read in the MAX_LEVEL
+    max_levels = read_maxlevels(args.config_maxlevel,verb=args.verb)
+
+    # Make the call
+    build_call(bandnames,max_levels,**vars(args))
+
+    print "# Elapsed time: %s" % elapsed_time(t0)
+
