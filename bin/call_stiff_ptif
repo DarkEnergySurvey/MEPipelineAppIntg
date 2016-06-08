@@ -16,17 +16,8 @@ STIFF_EXE = 'stiff'
 BKLINE = "\\\n"
 DETNAME = 'det'
 
-# Borrowed from multiepoch.utils
-def arglist2dict(inputlist,separator='='):
-    """
-    Re-shape a list of items ['VAL1=value1', 'VAL2=value2', etc]  into a dictionary
-    dict['VAL1'] = value1, dict['VAL2'] = values, etc
-    This is used to pass optional command-line argument option to the astromatic codes.
-    
-    We Re-pack as a dictionary the astromatic extras fron the command-line, if run as script
-    """
-    return dict( [ inputlist[index].split(separator) for index, item in enumerate(inputlist) ] )
-
+def list2dict(v):
+    return dict(v[i:i+2] for i in range(0, len(v), 2))
 
 def read_bandlist(bandlist,verb=False):
 
@@ -70,17 +61,20 @@ def build_call(bandanames, maxlevels, **args):
     cmd_list.append("-c %s" % args['config_stiff'])
 
     pars = {}
-    pars['MAX_LEVEL']    = ','.join(maxvalues)
-    pars['OUTFILE_NAME'] = args['OUTFILE_NAME']
-    pars['NTHREADS']     = args['NTHREADS']
+    pars['-MAX_LEVEL']    = ','.join(maxvalues)
+    pars['-NTHREADS']     = 1
+    pars['-DESCRIPTION']  = "'Pseudo Color of coadded image created by DESDM/NCSA'"
 
     # Update and overide the parameters from the command line
     pars.update(args['stiff_parameters'])
 
     # Go over all of the modifications
     for param,value in pars.items():
-        cmd_list.append("-%s %s" % (param,value))
-
+        # Make sure the Astromatic params start with '-' like -OUTFILE_NAME
+        if param[0] != '-':
+            print "# adding '-' to Stiff param %s" % param
+            param = '-'+param
+        cmd_list.append("%s %s" % (param,value))
     
     if args['verb']:
         print "# Will execute:"
@@ -100,25 +94,20 @@ if __name__ == "__main__":
                         help="List of coadd fits files to use")
     parser.add_argument("--detimage", action="store",default=None, required=True,
                         help="The name of the detection image")
-    parser.add_argument("-OUTFILE_NAME", action="store",default=None, required=True,
-                        help="The name of the outfile_name image file")
     parser.add_argument("-c","--config_stiff", action="store",default=None, required=True,
                         help="Stiff Ptif config file")
     parser.add_argument("--config_maxlevel", action="store",default=None, required=True,
                         help="MAX_LEVEL config file")
     parser.add_argument("--verb", action="store_true",default=False,
                         help="Verbose?")
-    parser.add_argument("-NTHREADS", action="store",default=1, 
-                        help="NTHREADS to use")
     parser.add_argument("--dryrun", action="store_true",default=False,
                         help="Print and exit?")
-    parser.add_argument("--stiff_parameters", action="store", nargs='+', default=[],
-                        help="A list of parameters to pass to Stiff")
     
-    args = parser.parse_args()
+    # Parse the args and get the extras
+    args, extra_args = parser.parse_known_args(sys.argv[1:])
 
-    # Parse the list of stiff_parameters into a dictionary
-    args.stiff_parameters = arglist2dict(args.stiff_parameters,separator='=')
+    # Parse the extras args list into a dictionary
+    args.stiff_parameters = list2dict(extra_args)
 
     t0 = time.time()
 
@@ -133,5 +122,5 @@ if __name__ == "__main__":
     # Make the call
     build_call(bandnames,max_levels,**vars(args))
 
-    print "# Elapsed time: %s" % elapsed_time(t0)
+    print "# Stiff PTIF creation time: %s" % elapsed_time(t0)
 
