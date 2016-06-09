@@ -23,8 +23,11 @@ if __name__ == "__main__":
                         help="File list with background images")
     parser.add_argument("--meds_output", dest='meds_url', type=str, action="store",default=None, required=True,
                         help="The output MED name")
+    parser.add_argument("--coadd_image_id", type=int, action="store",default=-1,
+                        help="Coadd Image ID")
     parser.add_argument("--yaml_fileconf", type=str, action="store",default=None, required=True,
                         help="The new yaml fileconf file where we want to write to")
+
     
     # Parse the args and get the extras
     args = parser.parse_args()
