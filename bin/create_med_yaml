@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+
+import argparse
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Create the input yaml files for MED files")
+    parser.add_argument("--band", type=str, action="store",default=None, required=True,
+                        help="Band")
+    parser.add_argument("--coadd_cat", dest='coadd_cat_url', type=str,action="store",default=None, required=True,
+                        help="The name of the coadd catalog")
+    parser.add_argument("--coadd_image", dest='coadd_image_url',type=str, action="store",default=None, required=True,
+                        help="The name of the coadd image")
+    parser.add_argument("--coadd_seg", dest='coadd_seg_url', type=str, action="store",default=None, required=True,
+                        help="The name of the coadd SExtractor ")
+    parser.add_argument("--coadd_magzp", type=float, action="store",default=30.0,
+                        help="The coadd magnitude zero point")
+    parser.add_argument("--ngwint_flist", dest='ngwint_flist_url',type=str, action="store",default=None, required=True,
+                        help="File list with ngwint images")
+    parser.add_argument("--seg_flist", dest='seg_flist_url',type=str, action="store",default=None, required=True,
+                        help="File list with segmentation images")
+    parser.add_argument("--bkg_flist", dest='bkg_flist_url',type=str, action="store",default=None, required=True,
+                        help="File list with background images")
+    parser.add_argument("--meds_output", dest='meds_url', type=str, action="store",default=None, required=True,
+                        help="The output MED name")
+    parser.add_argument("--yaml_fileconf", type=str, action="store",default=None, required=True,
+                        help="The new yaml fileconf file where we want to write to")
+    
+    # Parse the args and get the extras
+    args = parser.parse_args()
+
+    # Make it a dictionary
+    data = vars(args)
+
+    # Write the new yaml file, we pop from the dictionary
+    yaml_fileconf = data.pop('yaml_fileconf',None)
+    with open(yaml_fileconf,'w') as yaml_output:
+        for key, value in data.iteritems():
+            if isinstance(value, str):
+                value = '\"%s\"' % value
+            yaml_output.write( "%-18s %s\n" %  (key+":", value))
+
+    print "\n *** Wrote yaml configuration to: %s ***\n" % yaml_fileconf
