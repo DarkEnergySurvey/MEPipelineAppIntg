@@ -23,16 +23,18 @@ if __name__ == "__main__":
     import time
     import re
     import sys
+    from despymisc.miscutils import fwsplit
     import intgutils.queryutils as queryutils
     import mepipelineappintg.coadd_query as me
     
     svnid="$Id$"
 
     parser = argparse.ArgumentParser(description='Query code to obtain inputs for the astrometric refinement step in COADD/multiepoch pipelines.')
-    parser.add_argument('--cattype',  action='store', type=str, required=True, help='Type of catalog query (default=CAT_FINALCUT) or alternatively SCAMPCAT scampcat/head')
-    parser.add_argument('-p', '--proctag',  action='store', type=str, required=True, help='Processing Tag from which to draw COADD inputs')
-    parser.add_argument('-t', '--tile',     action='store', type=str, required=True, help='COADD tile name for which to asssemble inputs')
-    parser.add_argument('-o', '--outfile',  action='store', type=str, required=True, help='Output list to be returned for the framework')
+    parser.add_argument('--cattype',       action='store', type=str, required=True, help='Type of catalog query (default=CAT_FINALCUT) or alternatively SCAMPCAT scampcat/head')
+    parser.add_argument('-p', '--proctag', action='store', type=str, required=True, help='Processing Tag from which to draw COADD inputs')
+    parser.add_argument('-t', '--tile',    action='store', type=str, required=True, help='COADD tile name for which to asssemble inputs')
+    parser.add_argument('-o', '--outfile', action='store', type=str, required=True, help='Output list to be returned for the framework')
+    parser.add_argument('--bandlist',      action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 3)')
@@ -53,6 +55,9 @@ if __name__ == "__main__":
         print "Aborting!!!"
         exit(1)
 
+    BandList=fwsplit(args.bandlist)
+    print(" Proceeding with BAND constraint to include {:s}-band images".format(','.join([d.strip() for d in BandList])))
+
 #
 #   Setup a DB connection
 #
@@ -67,9 +72,9 @@ if __name__ == "__main__":
     CatDict={}
 
     if (cattype == 'SCAMPCAT'):
-        CatDict=me.query_astref_scampcat(CatDict,args.tile,args.proctag,cur,dbSchema,verbose)
+        CatDict=me.query_astref_scampcat(CatDict,args.tile,args.proctag,cur,dbSchema,BandList,verbose)
     else:
-        CatDict=me.query_astref_catfinalcut(CatDict,args.tile,args.proctag,cur,dbSchema,verbose)
+        CatDict=me.query_astref_catfinalcut(CatDict,args.tile,args.proctag,cur,dbSchema,BandList,verbose)
 
     print " "
     print "CATs Acquired by Query using edges for tile=%s" % (args.tile)

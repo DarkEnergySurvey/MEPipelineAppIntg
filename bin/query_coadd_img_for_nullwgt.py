@@ -20,6 +20,7 @@ if __name__ == "__main__":
     import time
     import re
     import sys
+    from despymisc.miscutils import fwsplit 
     import intgutils.queryutils as queryutils
     import mepipelineappintg.coadd_query as me
     
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument('--zversion',   action='store', type=str, default=None, help='VERSION constraint on ZEROPOINT table to use in queries. (Default=None)')
     parser.add_argument('--zflag',      action='store', type=str, default=None, help='FLAG constraint on ZEROPOINT table to use in queries. (Default=None)')
     parser.add_argument('--blacklist',  action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
+    parser.add_argument('--bandlist',   action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
@@ -42,6 +44,9 @@ if __name__ == "__main__":
     if (args.verbose):
         print "Args: ",args
 
+#
+#   Handle simple args (verbose, Schema, magbase, bandlist)
+#
     verbose=args.verbose
 
     if (args.Schema is None):
@@ -50,6 +55,8 @@ if __name__ == "__main__":
         dbSchema="%s." % (args.Schema)
 
     MagBase=args.magbase
+    BandList=fwsplit(args.bandlist)
+    print(" Proceeding with BAND constraint to include {:s}-band images".format(','.join([d.strip() for d in BandList])))
 
 #
 #   Specify ZEROPOINT table for use
@@ -64,6 +71,17 @@ if __name__ == "__main__":
         else:
             ZptInfo['table']='%s%s' % (dbSchema,args.zeropoint)
         print(" Proceeding with constraints using {:s} for ZEROPOINT constraints.".format(ZptInfo['table']))
+#
+#       Since a zeropoint table is being used... require that SOURCE and VERSION are present
+#
+        if ((args.zsource is None)or(args.zversion is None)):
+            print(" As --zeropoint constraint is active:")
+            if (args.zsource is None):
+                print("   --zsource {SOURCE} must be provided")
+            if (args.zversion is None):
+                print("   --zversion {VERSION} must be provided")
+            print(" Aborting!")
+            exit(1)
 
 #
 #   Constraint on ZEROPOINT based on SOURCE
@@ -132,7 +150,7 @@ if __name__ == "__main__":
 
     t0=time.time()
     ImgDict={}
-    ImgDict=me.query_coadd_img_by_edges(ImgDict,args.tile,args.proctag,ZptInfo,BlacklistInfo,cur,dbSchema,verbose)
+    ImgDict=me.query_coadd_img_by_edges(ImgDict,args.tile,args.proctag,ZptInfo,BlacklistInfo,cur,dbSchema,BandList,verbose)
     print "Images Acquired by Query using edges for tile=%s" % (args.tile)
     print "    Execution Time: %.2f" % (time.time()-t0)
     print "    Img Dict size: ",len(ImgDict)

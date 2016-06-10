@@ -22,6 +22,7 @@ if __name__ == "__main__":
     import time
     import re
     import sys
+    from despymisc.miscutils import fwsplit
     import mepipelineappintg.coadd_query as me
     
     svnid="$Id$"
@@ -30,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--proctag',  action='store', type=str, required=True, help='Processing Tag from which to draw COADD inputs')
     parser.add_argument('-t', '--tile',     action='store', type=str, required=True, help='COADD tile name for which to asssemble inputs')
     parser.add_argument('--catquery',    action='store_true', default=False, help='Exercise Astrorefine input CAT query')
+    parser.add_argument('--cattype',     action='store', type=str, default='cat_finalcut', help='Type of catalog query (default=CAT_FINALCUT) or alternatively SCAMPCAT scampcat/head')
     parser.add_argument('--edgequery',   action='store_true', default=False, help='Exercise Edge-based IMG query')
     parser.add_argument('--extentquery', action='store_true', default=False, help='Exercise Extent-based IMG query')
     parser.add_argument('--compIMG',     action='store_true', default=False, help='Compare results from edge and extent IMG queries')
@@ -39,7 +41,7 @@ if __name__ == "__main__":
     parser.add_argument('--zflag',       action='store', type=str, default=None, help='FLAG constraint on ZEROPOINT table to use in queries. (Default=None)')
     parser.add_argument('--blacklist',   action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
     parser.add_argument('--magbase',     action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
-
+    parser.add_argument('--bandlist',      action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 2)')
@@ -53,6 +55,19 @@ if __name__ == "__main__":
         dbSchema=""
     else:
         dbSchema="%s." % (args.Schema)
+
+    cattype=args.cattype.upper()
+    if (cattype not in ['CAT_FINALCUT', 'SCAMPCAT']):
+        print "--cattype must be either 'cat_finalcut' or 'scampcat'"
+        print "Aborting!!!"
+        exit(1)
+
+#
+#   Form bandlist used in constraints
+#
+    BandList=fwsplit(args.bandlist)
+    print(" Proceeding with BAND constraint to include {:s}-band images".format(','.join([d.strip() for d in BandList])))
+
 #
 #   If no specific test is specified then test all.
 #
@@ -151,7 +166,7 @@ if __name__ == "__main__":
         if ((args.extentquery)or(TestAll)):
             t0=time.time()
             MeImgDict={}
-            MeImgDict=me.query_coadd_img_by_extent(MeImgDict,tile,args.proctag,cur,dbSchema,verbose)
+            MeImgDict=me.query_coadd_img_by_extent(MeImgDict,tile,args.proctag,cur,dbSchema,BandList,verbose)
             print "Img Acquired by Query using extents for tile=%s" % (tile)
             print "    Execution Time: %.2f" % (time.time()-t0)
             print "    ImgDict (by extent) size: ",len(MeImgDict)
@@ -159,26 +174,38 @@ if __name__ == "__main__":
         if ((args.catquery)or(TestAll)):
             t0=time.time()
             CatDict={}
-            CatDict=me.query_astref_scampcat(CatDict,tile,args.proctag,cur,dbSchema,verbose)
+            if (cattype == 'SCAMPCAT'):
+                CatDict=me.query_astref_scampcat(CatDict,tile,args.proctag,cur,dbSchema,BandList,verbose)
+            else:
+                CatDict=me.query_astref_catfinalcut(CatDict,tile,args.proctag,cur,dbSchema,BandList,verbose)
             print "CAT Acquired by Query using edges for tile=%s" % (tile)
             print "    Execution Time: %.2f" % (time.time()-t0)
             print "    CAT Dict size: ",len(CatDict)
 #
-            if (verbose > 1):
+            if (verbose > 2):
                 for Cat in CatDict:
-                    print(" {:d} {:s} {:s} ".format(
-                        CatDict[Cat]['expnum'],
-                        CatDict[Cat]['catfile'],
-                        CatDict[Cat]['headfile']))
-
+                    if (cattype == 'SCAMPCAT'):
+                        print(" {:d} {:s} {:s} ".format(
+                            CatDict[Cat]['expnum'],
+                            CatDict[Cat]['catfile'],
+                            CatDict[Cat]['headfile']))
+                    else:
+                        print(" {:d} {:2d} {:s}  ".format(
+                            CatDict[Cat]['expnum'],
+                            CatDict[Cat]['ccdnum'],
+                            CatDict[Cat]['catfile']))
 #
 #           Test conversion of CatDict to an LLD (list of list of dictionaries)
 #
-            filetypes=['catfile','headfile']
-            mdatatypes=['expnum','band']
+            if (cattype == 'SCAMPCAT'):
+                filetypes=['catfile','headfile']
+            else:
+                filetypes=['catfile']
+#            mdatatypes=['expnum','band']
+            mdatatypes=['expnum','band','ccdnum']
             CAT_LLD=me.CatDict_to_LLD(CatDict,filetypes,mdatatypes,verbose)
- 
-            if (verbose > 1):
+
+            if (verbose > 2):
                 for sublist in CAT_LLD:
                     print sublist
 
@@ -186,7 +213,7 @@ if __name__ == "__main__":
         if ((args.edgequery)or(TestAll)):
             t0=time.time()
             ImgDict={}
-            ImgDict=me.query_coadd_img_by_edges(ImgDict,tile,args.proctag,ZptInfo,BlacklistInfo,cur,dbSchema,verbose)
+            ImgDict=me.query_coadd_img_by_edges(ImgDict,tile,args.proctag,ZptInfo,BlacklistInfo,cur,dbSchema,BandList,verbose)
             print "Img Acquired by Query using edges for tile=%s" % (tile)
             print "    Execution Time: %.2f" % (time.time()-t0)
             print "    ImgDict size: ",len(ImgDict)

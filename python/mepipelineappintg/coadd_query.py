@@ -64,7 +64,7 @@ def query_coadd_geometry(TileDict,CoaddTile,curDB,dbSchema,verbose=0):
 
 
 ######################################################################################
-def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,curDB,dbSchema,verbose=0):
+def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,curDB,dbSchema,BandList,verbose=0):
     """ Query code to obtain image inputs for COADD (based on tile/img edges)
         Use an existing DB connection to execute a query for RED_IMMASK image
         products that overlap a spsecic COADD tile.
@@ -72,30 +72,55 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
         ccdnum, band, nite).
 
         Inputs:
-            ImgDict:   Existing ImgDict, new records are added (and possibly old records updated)
-            CoaddTile: Name of COADD tile for search
-            ProcTag:   Processing Tag used to constrain pool of input images
+            ImgDict:    Existing ImgDict, new records are added (and possibly old records updated)
+            CoaddTile:  Name of COADD tile for search
+            ProcTag:    Processing Tag used to constrain pool of input images
+            ZptInfo:    Dictionary containing information about Zeropoint Constraint 
+                        (NoneType yields no constraint)
+                            ZptInfo['table']:   provides table to use 
+                            ZptInfo['source']:  Zpt source constraint
+                            ZptInfo['version']: Zpt version constraint
+                            ZptInfo['flag']:    Zpt flag constraint
+            Blacklistnfo: Dictionary containing information about Blacklist Constraint 
+                          (NoneType yields no constraint)
+                            BlacklistInfo['table'] provides table to use
             curDB:     Database connection to be used
             dbSchema:  Schema over which queries will occur.
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             verbose:   Integer setting level of verbosity when running.
 
         Returns:
             ImgDict:   Updated version of input ImgDict
     """
-
 #
 #   Pre-assemble portions of query that pertain to ZEROPOINT (no constraint will output mag_zero=30 for all exposures)
 #
+    print ZptInfo
     ZptData=''
     ZptTable=''
     ZptConstraint=''
     if (ZptInfo is not None):
         ZptData='z.mag_zero as mag_zero,'
         ZptTable=', %s z' % ZptInfo['table']
+
+        ZptSrcConstraint=''
+        if ('source' in ZptInfo):
+            ZptSrcConstraint="and z.source='%s'" % (ZptInfo['source'])
+
+        ZptVerConstraint=''
+        if ('version' in ZptInfo):
+            ZptVerConstraint="and z.version='%s'" % (ZptInfo['version'])
+
         ZptFlagConstraint=''
         if ('flag' in ZptInfo):
             ZptFlagConstraint='and z.flag=0'
-        ZptConstraint="""and z.imagename=i.filename and z.source='%s' and z.version='%s' %s""" % (ZptInfo['source'],ZptInfo['version'],ZptFlagConstraint)
+
+        ZptConstraint="""and z.imagename=i.filename %s %s %s""" % (ZptSrcConstraint,ZptVerConstraint,ZptFlagConstraint)
+
+#        ZptFlagConstraint=''
+#        if ('flag' in ZptInfo):
+#            ZptFlagConstraint='and z.flag=0'
+#        ZptConstraint="""and z.imagename=i.filename and z.source='%s' and z.version='%s' %s""" % (ZptInfo['source'],ZptInfo['version'],ZptFlagConstraint)
 
 #
 #   Pre-assemble portions of query that pertain to the BLACKLIST (no constraint)
@@ -105,6 +130,12 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
     if (BlacklistInfo is not None):
         BlacklistConstraint="""and not exists (select bl.reason from %s bl where bl.expnum=i.expnum and bl.ccdnum=i.ccdnum)""" % BlacklistInfo['table']
 
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and i.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
 #
 #   Query to obtain images and associated metadata.  Note the current version may be
 #   counter-intuitive and makes two references to image: "image i" and "image j".  
@@ -117,26 +148,27 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
 #   directive (e.g. /* +index */
 #
     
+#        {bandconstraint:s}
+#            bandconstraint=BandConstraint,
+
     query="""SELECT 
-        fai.filename as filename,
-        fai.compression as compression,
-        %s
+        i.filename as filename,
+        {zptdata:s}
         i.band as band,
         i.expnum as expnum,
         i.ccdnum as ccdnum,
-        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac3,
+        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
         i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
-    FROM %simage i, %sfile_archive_info fai %s 
-    WHERE fai.filename=i.filename
-        %s
+    FROM {schema:s}image i, {schema:s}proctag t{zpttable:s}
+    WHERE t.tag='{proctag:s}'
+        and t.pfw_attempt_id=i.pfw_attempt_id
+        and i.filetype='red_immask'
+        {zptconstraint:s}
         and exists (
             select 1
-            from %sproctag t, %simage j, %scoaddtile_geom ct
-            WHERE t.TAG = '%s'
-                AND t.pfw_attempt_id=j.pfw_attempt_id
-                AND j.filetype='red_immask'
-                AND j.filename=i.filename
-                AND ct.tilename = '%s'
+            from {schema:s}image j, {schema:s}coaddtile_geom ct
+            WHERE j.filename=i.filename
+                AND ct.tilename = '{tile:s}'
                 AND ((ct.crossra0='N'
                         AND ((j.racmin between ct.racmin and ct.racmax)OR(j.racmax between ct.racmin and ct.racmax))
                         AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
@@ -146,41 +178,50 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
                         AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
                     ))
             )
-        %s""" % (ZptData,dbSchema,dbSchema,ZptTable,ZptConstraint,dbSchema,dbSchema,dbSchema,ProcTag,CoaddTile,BlacklistConstraint)
-
+        {blackconstraint:s}""".format(
+            zptdata=ZptData,
+            schema=dbSchema,
+            zpttable=ZptTable,
+            zptconstraint=ZptConstraint,
+            proctag=ProcTag,
+            tile=CoaddTile,
+            blackconstraint=BlacklistConstraint)
 
     if (verbose > 0):
+        print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
         if (verbose == 1):
-            QueryLines=query.split('\n')
-            QueryOneLine='sql = '
-            for line in QueryLines:
-                QueryOneLine=QueryOneLine+" "+line.strip()
-            print QueryOneLine
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
         if (verbose > 1):
-            print query
-
+            print("# sql = {:s}".format(query))
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
     for row in curDB:
         rowd = dict(zip(desc, row))
-        ImgName=rowd['filename']
-        ImgDict[ImgName]=rowd
+#        ImgName=rowd['filename']
+#        ImgDict[ImgName]=rowd
+        if (rowd['band'] in BandList):
+            ImgName=rowd['filename']
+            ImgDict[ImgName]=rowd
+        else:
+            if (verbose > 2):
+                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+
 #        if ('mag_zero' not in ImgDict[ImgName]):
 #            ImgDict[ImgName]['mag_zero']=30.0
 #
 #       Fix any known problematic NoneTypes before they get in the way.
 #
-        if (ImgDict[ImgName]['band'] is None):
-            ImgDict[ImgName]['band']='None'
+#        if (ImgDict[ImgName]['band'] is None):
+#            ImgDict[ImgName]['band']='None'
 #        if (ImgDict[ImgName]['compression'] is None):
-#            ImgDict[ImgName]['compression']=''
+#           ImgDict[ImgName]['compression']=''
 
     return ImgDict
 
 
 ######################################################################################
-def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
+def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verbose=0):
     """ Query code to obtain image inputs for COADD (based on centers and extents of Tile/Imgs).
         Note this is an alternate version (and is currently non-performant).
 
@@ -195,6 +236,7 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0
             ProcTag:   Processing Tag used to constrain pool of input images
             curDB:     Database connection to be used
             dbSchema:  Schema over which queries will occur.
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             verbose:   Integer setting level of verbosity when running.
 
         Returns:
@@ -202,7 +244,18 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0
     """
 
 
-    query1="""select crossra0 from %scoaddtile_geom where tilename='%s'""" % (CoaddTile,dbSchema)
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and band in ('" + "','".join([d.strip() for d in BandList]) + "')"
+
+#
+#   Prepare queries used to find images that correspond to a tile (based on their extents)
+#
+
+    query1="""select crossra0 from {schema:s}coaddtile_geom where tilename='{tile:s}'""".format(schema=dbSchema,tile=CoaddTile)
 
     query2a="""with ima as
     (SELECT /*+ materialize */
@@ -210,7 +263,7 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0
          RA_CENT, DEC_CENT,
          (case when image.CROSSRA0='Y' THEN abs(image.RACMAX - (image.RACMIN-360)) ELSE abs(image.RACMAX - image.RACMIN) END) as RA_SIZE_CCD,
          abs(image.DECCMAX - image.DECCMIN) as DEC_SIZE_CCD
-         FROM %simage where filetype='red_immask')
+         FROM {schema:s}image where filetype='red_immask' {bandconstraint:s})
     SELECT
      ima.FILENAME as FILENAME,
      ima.RA_CENT,ima.DEC_CENT,
@@ -219,15 +272,15 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0
      tile.DEC_CENT as tdec_cent,
      ima.RA_SIZE_CCD,ima.DEC_SIZE_CCD
     FROM
-     ima, %sproctag, %scoaddtile_geom tile
+     ima, {schema:s}proctag, {schema:s}coaddtile_geom tile
     WHERE
      ima.PFW_ATTEMPT_ID = proctag.PFW_ATTEMPT_ID AND   
-     proctag.TAG = '%s' AND
-     tile.tilename = '%s' AND
+     proctag.TAG = '{proctag:s}' AND
+     tile.tilename = '{tile:s}' AND
      (ABS(ima.RA_CENT  -  tile.RA_CENT)  < (0.5*tile.RA_SIZE  + 0.5*ima.RA_SIZE_CCD)) AND
      (ABS(ima.DEC_CENT -  tile.DEC_CENT) < (0.5*tile.DEC_SIZE + 0.5*ima.DEC_SIZE_CCD))
      order by ima.RA_CENT
-        """ % (dbSchema,dbSchema,dbSchema,ProcTag,CoaddTile)
+        """.format(schema=dbSchema,bandconstraint=BandConstraint,proctag=ProcTag,tile=CoaddTile)
 
 
     query2b="""with ima as
@@ -238,67 +291,57 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0
          (case when i.RA_CENT > 180. THEN i.RA_CENT-360. ELSE i.RA_CENT END) as RA_CENT,
          (case when i.CROSSRA0='Y' THEN abs(i.RACMAX - (i.RACMIN-360)) ELSE abs(i.RACMAX - i.RACMIN) END) as RA_SIZE_CCD,
          abs(i.DECCMAX - i.DECCMIN) as DEC_SIZE_CCD
-         FROM %simage i where i.filetype='red_immask'),
+         FROM {schema:s}image i where i.filetype='red_immask' {bandconstraint:s}),
     tile as (SELECT /*+ materialize */
          t.tilename, t.RA_SIZE, t.DEC_SIZE, t.DEC_CENT,
          (case when (t.CROSSRA0='Y' and t.RA_CENT> 180) THEN t.RA_CENT-360. ELSE t.RA_CENT END) as RA_CENT
-         FROM %scoaddtile_geom t )
+         FROM {schema:s}coaddtile_geom t )
     SELECT
          ima.FILENAME,
          ima.RA_CENT,ima.DEC_CENT,
          ima.BAND,
          ima.RA_SIZE_CCD,ima.DEC_SIZE_CCD
     FROM
-         ima, %sproctag t, tile
+         ima, {schema:s}proctag t, tile
     WHERE
          ima.PFW_ATTEMPT_ID = t.PFW_ATTEMPT_ID AND   
-         t.TAG = '%s' AND
-         tile.tilename = '%s' AND
+         t.TAG = '{proctag:s}' AND
+         tile.tilename = '{tile:s}' AND
          (ABS(ima.RA_CENT  -  tile.RA_CENT)  < (0.5*tile.RA_SIZE  + 0.5*ima.RA_SIZE_CCD)) AND
          (ABS(ima.DEC_CENT -  tile.DEC_CENT) < (0.5*tile.DEC_SIZE + 0.5*ima.DEC_SIZE_CCD))
      order by ima.BAND
-        """ % (dbSchema,dbSchema,dbSchema,ProcTag,CoaddTile)
+        """.format(schema=dbSchema,bandconstraint=BandConstraint,proctag=ProcTag,tile=CoaddTile)
 
 #
 #   First check whether the requested tile crosses RA0
 #   Then depending on the result execute query2a or query1b
 #
     if (verbose > 0):
+        print("# Executing query to determine CROSSRA0 condition for COADDTILE_GEOM.TILE={:s}".format(CoaddTile))
         if (verbose == 1):
-            QueryLines=query1.split('\n')
-            QueryOneLine='sql = '
-            for line in QueryLines:
-                QueryOneLine=QueryOneLine+" "+line.strip()
-            print QueryOneLine
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query1.split('\n')])))
         if (verbose > 1):
-            print query1
-
+            print("# sql = {:s}".format(query1))
     curDB.execute(query1)
     for row in curDB:
         crossravalue=row[0]
 
-    if (crossravalue == "Y"):
-        if (verbose > 0):
-            if (verbose == 1):
-                QueryLines=query2b.split('\n')
-                QueryOneLine='sql = '
-                for line in QueryLines:
-                    QueryOneLine=QueryOneLine+" "+line.strip()
-                print QueryOneLine
-            if (verbose > 1):
-                print query2b
-        curDB.execute(query2b)
 
-    else:
+    if (crossravalue == "Y"):
+        print("# Executing query (condition CROSSRA0=Y) to obtain red_immask images (based on their extents)")
         if (verbose > 0):
             if (verbose == 1):
-                QueryLines=query2a.split('\n')
-                QueryOneLine='sql = '
-                for line in QueryLines:
-                    QueryOneLine=QueryOneLine+" "+line.strip()
-                print QueryOneLine
+                print("# sql = {:s} ".format(" ".join([d.strip() for d in query2b.split('\n')])))
             if (verbose > 1):
-                print query2a
+                print("# sql = {:s}".format(query2b))
+        curDB.execute(query2b)
+    else:
+        print("# Executing query (condition CROSSRA0=N) to obtain red_immask images (based on their extents)")
+        if (verbose > 0):
+            if (verbose == 1):
+                print("# sql = {:s} ".format(" ".join([d.strip() for d in query2a.split('\n')])))
+            if (verbose > 1):
+                print("# sql = {:s}".format(query2a))
         curDB.execute(query2a)
 
     desc = [d[0].lower() for d in curDB.description]
@@ -310,8 +353,8 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0
 #
 #       Fix any known problematic NoneTypes before they get in the way.
 #
-        if (ImgDict[ImgName]['band'] is None):
-            ImgDict[ImgName]['band']='None'
+#        if (ImgDict[ImgName]['band'] is None):
+#            ImgDict[ImgName]['band']='None'
 #        if (ImgDict[ImgName]['compression'] is None):
 #            ImgDict[ImgName]['compression']=''
 #        if (ImgDict[ImgName]['object'] is None):
@@ -326,7 +369,7 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0
 
 
 ######################################################################################
-def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
+def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verbose=0):
     """ Query code to obtain inputs for COADD Astrorefine step.
         Use an existing DB connection to execute a query for CAT_SCAMP_FULL and 
         HEAD_SCAMP_FULL products from exposures that overlap a specific COADD tile.  
@@ -339,13 +382,23 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
             ProcTag:   Processing Tag used to constrain pool of input images
             curDB:     Database connection to be used
             dbSchema:  Schema over which queries will occur.
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             verbose:   Integer setting level of verbosity when running.
 
         Returns:
             CatDict:   Updated version of input CatDict
     """
 
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and c.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
 
+#
+#   Form the query to obtain the cat_scamp_full files.
+#
     query="""
         SELECT 
             c.filename as catfile,
@@ -354,10 +407,11 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
             m.band as band,
             listagg(d.ccdnum,',') within group (order by d.ccdnum) as ccdnum
         FROM
-            %smiscfile m, %scatalog c, %scatalog d, %sproctag t
-        WHERE t.tag='%s'
+            {schema:s}miscfile m, {schema:s}catalog c, {schema:s}catalog d, {schema:s}proctag t
+        WHERE t.tag='{proctag:s}'
             and t.pfw_attempt_id=c.pfw_attempt_id
             and c.filetype='cat_scamp_full'
+            {bandconstraint:s}
             and d.pfw_attempt_id=c.pfw_attempt_id
             and d.filetype='cat_scamp'
             and c.pfw_attempt_id=m.pfw_attempt_id
@@ -368,12 +422,12 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
                 SELECT 
                     1
                 FROM
-                    %simage i, %sfile_archive_info fai, %scoaddtile_geom ct
+                    {schema:s}image i, {schema:s}file_archive_info fai, {schema:s}coaddtile_geom ct
                 WHERE i.expnum=c.expnum
                     AND t.PFW_ATTEMPT_ID=i.PFW_ATTEMPT_ID
                     AND i.FILETYPE='red_immask'
                     AND i.FILENAME=fai.FILENAME
-                    AND ct.tilename = '%s'
+                    AND ct.tilename = '{tile:s}'
                     and ((
                             ct.crossra0='N'
                             and ((i.RACMIN between ct.racmin and ct.racmax)or(i.racmax between ct.racmin and ct.racmax))
@@ -385,19 +439,18 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
                             and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
                     ))
             )
-            group by c.filename,m.filename,m.expnum,m.band """ % (dbSchema,dbSchema,dbSchema,dbSchema,ProcTag,dbSchema,dbSchema,dbSchema,CoaddTile)
-
+            group by c.filename,m.filename,m.expnum,m.band """.format(
+                schema=dbSchema,
+                proctag=ProcTag,
+                bandconstraint=BandConstraint,
+                tile=CoaddTile)
 
     if (verbose > 0):
+        print("# Executing query to obtain CAT_SCAMP_FULL catalogs")
         if (verbose == 1):
-            QueryLines=query.split('\n')
-            QueryOneLine='sql = '
-            for line in QueryLines:
-                QueryOneLine=QueryOneLine+" "+line.strip()
-            print QueryOneLine
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
         if (verbose > 1):
-            print query
-
+            print("# sql = {:s}".format(query))
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
@@ -416,7 +469,7 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
 
 
 ######################################################################################
-def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0):
+def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verbose=0):
     """ Query code to obtain inputs for COADD Astrorefine step.
         Use an existing DB connection to execute a query for CAT_FINALCUT products
         from exposures that overlap a specific COADD tile.  Return a dictionary 
@@ -428,13 +481,23 @@ def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0)
             ProcTag:   Processing Tag used to constrain pool of input images
             curDB:     Database connection to be used
             dbSchema:  Schema over which queries will occur.
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             verbose:   Integer setting level of verbosity when running.
 
         Returns:
             CatDict:   Updated version of input CatDict
     """
 
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and c.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
 
+#
+#   Form the query to obtain the cat_finalcut files
+#
     query="""
         SELECT 
             c.filename as catfile,
@@ -442,19 +505,20 @@ def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0)
             c.ccdnum as ccdnum,
             c.band as band
         FROM
-            %scatalog c, %sproctag t
-        WHERE t.tag='%s'
+            {schema:s}catalog c, {schema:s}proctag t
+        WHERE t.tag='{proctag:s}'
             and t.pfw_attempt_id=c.pfw_attempt_id
             and c.filetype='cat_finalcut'
+            {bandconstraint:s}
             and exists (
                 SELECT 
                     1
                 FROM
-                    %simage i, %scoaddtile_geom ct
+                    {schema:s}image i, {schema:s}coaddtile_geom ct
                 WHERE i.expnum=c.expnum
                     AND t.PFW_ATTEMPT_ID=i.PFW_ATTEMPT_ID
                     AND i.FILETYPE='red_immask'
-                    AND ct.tilename = '%s'
+                    AND ct.tilename = '{tile:s}'
                     and ((
                             ct.crossra0='N'
                             and ((i.RACMIN between ct.racmin and ct.racmax)or(i.racmax between ct.racmin and ct.racmax))
@@ -466,18 +530,18 @@ def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,curDB,dbSchema,verbose=0)
                             and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
                     ))
             )
-            order by c.expnum,c.ccdnum """ % (dbSchema,dbSchema,ProcTag,dbSchema,dbSchema,CoaddTile)
+            order by c.expnum,c.ccdnum """.format(
+                schema=dbSchema,
+                proctag=ProcTag,
+                bandconstraint=BandConstraint,
+                tile=CoaddTile)
 
     if (verbose > 0):
+        print("# Executing query to obtain CAT_FINALCUT catalogs")
         if (verbose == 1):
-            QueryLines=query.split('\n')
-            QueryOneLine='sql = '
-            for line in QueryLines:
-                QueryOneLine=QueryOneLine+" "+line.strip()
-            print QueryOneLine
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
         if (verbose > 1):
-            print query
-
+            print("# sql = {:s}".format(query))
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
