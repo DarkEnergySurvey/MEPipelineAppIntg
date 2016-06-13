@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-BKLINE = "\\\n"
+import os
+import sys
+import time
+from despymisc.miscutils import elapsed_time
+
 EXE = 'desmeds-make-meds-desdm'
 
 if __name__ == "__main__":
@@ -31,8 +35,8 @@ if __name__ == "__main__":
                         help="The new yaml fileconf file where we want to write to")
     parser.add_argument("--yaml_genconf", type=str, action="store",default=None, required=True,
                         help="The yaml general conf file")
-
-
+    parser.add_argument("--dryrun", action="store_true",default=False,
+                        help="Print and exit?")
     
     # Parse the args and get the extras
     args = parser.parse_args()
@@ -50,7 +54,17 @@ if __name__ == "__main__":
 
     print "# Wrote yaml configuration to: %s" % yaml_fileconf
 
-    # Now run the code
+    # Build the command
     cmd =  "%s %s %s" % (EXE, args.yaml_genconf, yaml_fileconf)
     print "# Will execute:"
-    print "# %s" % cmd
+    print "# \t%s" % cmd
+    print "# From full call:"
+    print "# %s %s" % (os.path.basename(sys.argv[0]), " ".join(sys.argv[1:]))
+
+    # Run the code
+    t0 = time.time()
+    if not args.dryrun:
+        os.system(cmd)
+
+    # Done
+    print "# MEDs creation time: %s" % elapsed_time(t0)
