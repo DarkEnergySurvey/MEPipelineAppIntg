@@ -66,15 +66,15 @@ if __name__ == "__main__":
     except KeyError:
         desdmfile = None
     dbh = despydb.desdbi.DesDbi(desdmfile,args.section)
-    cur = dbh.cursor()
+#    cur = dbh.cursor()
 
     t0=time.time()
     CatDict={}
 
     if (cattype == 'SCAMPCAT'):
-        CatDict=me.query_astref_scampcat(CatDict,args.tile,args.proctag,cur,dbSchema,BandList,verbose)
+        CatDict=me.query_astref_scampcat(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,verbose)
     else:
-        CatDict=me.query_astref_catfinalcut(CatDict,args.tile,args.proctag,cur,dbSchema,BandList,verbose)
+        CatDict=me.query_astref_catfinalcut(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,verbose)
 
     print " "
     print "CATs Acquired by Query using edges for tile=%s" % (args.tile)

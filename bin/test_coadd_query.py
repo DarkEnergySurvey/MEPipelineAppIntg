@@ -41,7 +41,8 @@ if __name__ == "__main__":
     parser.add_argument('--zflag',       action='store', type=str, default=None, help='FLAG constraint on ZEROPOINT table to use in queries. (Default=None)')
     parser.add_argument('--blacklist',   action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
     parser.add_argument('--magbase',     action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
-    parser.add_argument('--bandlist',      action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
+    parser.add_argument('--bandlist',    action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
+    parser.add_argument('--archive',     action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 2)')
@@ -62,11 +63,14 @@ if __name__ == "__main__":
         print "Aborting!!!"
         exit(1)
 
+    ArchiveSite=args.archive
+    print(" Archive site will be constrained to {:s}".format(ArchiveSite))
 #
 #   Form bandlist used in constraints
 #
     BandList=fwsplit(args.bandlist)
     print(" Proceeding with BAND constraint to include {:s}-band images".format(','.join([d.strip() for d in BandList])))
+    MagBase=args.magbase
 
 #
 #   If no specific test is specified then test all.
@@ -75,7 +79,6 @@ if __name__ == "__main__":
     if ((not(args.extentquery))and(not(args.edgequery))and(not(args.catquery))):
         TestAll=True
 
-    MagBase=args.magbase
 
 #
 #   Specify ZEROPOINT table for use
@@ -152,7 +155,7 @@ if __name__ == "__main__":
     except KeyError:
         desdmfile = None
     dbh = despydb.desdbi.DesDbi(desdmfile,args.section)
-    cur = dbh.cursor()
+#    cur = dbh.cursor()
 
     if (args.tile == "TESTBED"):
         tilelist=['DES0311-504','DES0309-5205', 'DES0307-5040', 'DES0306-5123','DES2359+0001','DES0001-4957','DES2357-5040']
@@ -166,7 +169,7 @@ if __name__ == "__main__":
         if ((args.extentquery)or(TestAll)):
             t0=time.time()
             MeImgDict={}
-            MeImgDict=me.query_coadd_img_by_extent(MeImgDict,tile,args.proctag,cur,dbSchema,BandList,verbose)
+            MeImgDict=me.query_coadd_img_by_extent(MeImgDict,tile,args.proctag,dbh,dbSchema,BandList,verbose)
             print "Img Acquired by Query using extents for tile=%s" % (tile)
             print "    Execution Time: %.2f" % (time.time()-t0)
             print "    ImgDict (by extent) size: ",len(MeImgDict)
@@ -175,9 +178,9 @@ if __name__ == "__main__":
             t0=time.time()
             CatDict={}
             if (cattype == 'SCAMPCAT'):
-                CatDict=me.query_astref_scampcat(CatDict,tile,args.proctag,cur,dbSchema,BandList,verbose)
+                CatDict=me.query_astref_scampcat(CatDict,tile,args.proctag,dbh,dbSchema,BandList,verbose)
             else:
-                CatDict=me.query_astref_catfinalcut(CatDict,tile,args.proctag,cur,dbSchema,BandList,verbose)
+                CatDict=me.query_astref_catfinalcut(CatDict,tile,args.proctag,dbh,dbSchema,BandList,verbose)
             print "CAT Acquired by Query using edges for tile=%s" % (tile)
             print "    Execution Time: %.2f" % (time.time()-t0)
             print "    CAT Dict size: ",len(CatDict)
@@ -213,7 +216,7 @@ if __name__ == "__main__":
         if ((args.edgequery)or(TestAll)):
             t0=time.time()
             ImgDict={}
-            ImgDict=me.query_coadd_img_by_edges(ImgDict,tile,args.proctag,ZptInfo,BlacklistInfo,cur,dbSchema,BandList,verbose)
+            ImgDict=me.query_coadd_img_by_edges(ImgDict,tile,args.proctag,ZptInfo,BlacklistInfo,dbh,dbSchema,ArchiveSite,BandList,verbose)
             print "Img Acquired by Query using edges for tile=%s" % (tile)
             print "    Execution Time: %.2f" % (time.time()-t0)
             print "    ImgDict size: ",len(ImgDict)

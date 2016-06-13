@@ -7,14 +7,16 @@
 A set of queries to obtain inputs for the COADD pipeline.
 """
 
+import despydb.desdbi
+
 ######################################################################################
-def query_coadd_geometry(TileDict,CoaddTile,curDB,dbSchema,verbose=0):
+def query_coadd_geometry(TileDict,CoaddTile,dbh,dbSchema,verbose=0):
     """ Query code to obtain COADD tile geometry
 
         Inputs:
             TileDict:  Existing TileDict, new records are added (and possibly old records updated)
             CoaddTile: Name of COADD tile for search
-            curDB:     Database connection to be used
+            dbh:       Database connection to be used
             dbSchema:  Schema over which queries will occur.
             verbose:   Integer setting level of verbosity when running.
 
@@ -47,6 +49,7 @@ def query_coadd_geometry(TileDict,CoaddTile,curDB,dbSchema,verbose=0):
         if (verbose > 1):
             print query
 
+    curDB=dbh.cursor()
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
@@ -64,7 +67,7 @@ def query_coadd_geometry(TileDict,CoaddTile,curDB,dbSchema,verbose=0):
 
 
 ######################################################################################
-def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,curDB,dbSchema,BandList,verbose=0):
+def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,dbh,dbSchema,verbose=0):
     """ Query code to obtain image inputs for COADD (based on tile/img edges)
         Use an existing DB connection to execute a query for RED_IMMASK image
         products that overlap a spsecic COADD tile.
@@ -72,21 +75,116 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
         ccdnum, band, nite).
 
         Inputs:
-            ImgDict:    Existing ImgDict, new records are added (and possibly old records updated)
-            CoaddTile:  Name of COADD tile for search
-            ProcTag:    Processing Tag used to constrain pool of input images
+            ImgDict:   Existing ImgDict, new records are added (and possibly old records updated)
+            CoaddTile: Name of COADD tile for search
+            ProcTag:   Processing Tag used to constrain pool of input images
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
+            ArchiveSite: Constraint that data/files exist within a specific archive
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            ImgDict:   Updated version of input ImgDict
+    """
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and i.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
+#
+#   Query to obtain images and associated metadata.  Note the current version may be
+#   counter-intuitive and makes two references to image: "image i" and "image j".  
+#   This is necessary for the workhorse portion of the query (image j) to make use 
+#   of the indices (over RACMIN, RACMAX...).  The second instance (image i)
+#   is necessary to obtain other infomration (e.g. band, expnum, ccdnum) in a way that 
+#   does not confuse Oracle into ignoring the index and instead executing the query as a 
+#   table scan.  Under our current database this may be fragile... also, experimentation
+#   has shown that this cannot be fixed by simply forcing the index with a runtime 
+#   directive (e.g. /* +index */
+#
+    
+    query="""SELECT 
+        fai.filename as filename,
+        fai.compression as compression, 
+        i.band as band,
+        i.expnum as expnum,
+        i.ccdnum as ccdnum,
+        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
+        i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
+    FROM {schema:s}image i, {schema:s}file_archive_info fai, {schema:s}proctag t
+    WHERE t.tag='{proctag:s}'
+        and t.pfw_attempt_id=i.pfw_attempt_id
+        and i.filetype='red_immask'
+        and i.filename=fai.filename
+        {bandconstraint:s}
+        and fai.archive_name='{archive:s}' 
+        and exists (
+            select 1
+            from {schema:s}image j, {schema:s}coaddtile_geom ct
+            WHERE j.filename=i.filename
+                AND ct.tilename = '{tile:s}'
+                AND ((ct.crossra0='N'
+                        AND ((j.racmin between ct.racmin and ct.racmax)OR(j.racmax between ct.racmin and ct.racmax))
+                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
+                    )OR(ct.crossra0='Y'
+                        AND ((j.racmin between ct.racmin and 360.)OR(j.racmin between 0.0 and ct.racmax)
+                            OR(j.racmax between ct.racmin and 360.)OR(j.racmax between 0.0 and ct.racmax))
+                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
+                    ))
+            )
+        """.format(
+            schema=dbSchema,
+            proctag=ProcTag,
+            tile=CoaddTile,
+            bandconstraint=BandConstraint,
+            archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName=rowd['filename']
+        ImgDict[ImgName]=rowd
+#        if (rowd['band'] in BandList):
+#            ImgName=rowd['filename']
+#            ImgDict[ImgName]=rowd
+#            ImgList.append([ImgName])
+#        else:
+#            if (verbose > 2):
+#                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+
+    return ImgDict
+
+
+
+######################################################################################
+def query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose=0):
+    """ Query code to obtain zeropoints for a set of images in existing ImgDict.
+        Use an existing DB connection to execute a query to obtain ZEROPOINTs 
+        for an existing set of images.  If images in the input list are not 
+        returned (i.e. do not have a zeropoint) they are removed from the dictionary 
+        that is returned.
+
+        Inputs:
+            ImgDict:    Existing ImgDict, (returned dictionary will remove records that have no zeropoint)
             ZptInfo:    Dictionary containing information about Zeropoint Constraint 
                         (NoneType yields no constraint)
                             ZptInfo['table']:   provides table to use 
                             ZptInfo['source']:  Zpt source constraint
                             ZptInfo['version']: Zpt version constraint
                             ZptInfo['flag']:    Zpt flag constraint
-            Blacklistnfo: Dictionary containing information about Blacklist Constraint 
-                          (NoneType yields no constraint)
-                            BlacklistInfo['table'] provides table to use
-            curDB:     Database connection to be used
+            dbh:       Database connection to be used
             dbSchema:  Schema over which queries will occur.
-            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             verbose:   Integer setting level of verbosity when running.
 
         Returns:
@@ -95,7 +193,6 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
 #
 #   Pre-assemble portions of query that pertain to ZEROPOINT (no constraint will output mag_zero=30 for all exposures)
 #
-    print ZptInfo
     ZptData=''
     ZptTable=''
     ZptConstraint=''
@@ -116,12 +213,86 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
             ZptFlagConstraint='and z.flag=0'
 
         ZptConstraint="""and z.imagename=i.filename %s %s %s""" % (ZptSrcConstraint,ZptVerConstraint,ZptFlagConstraint)
+#
+#   Prepare GTT_FILENAME table with list of possible inputs 
+#
+    ImgList=[]
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
 
-#        ZptFlagConstraint=''
-#        if ('flag' in ZptInfo):
-#            ZptFlagConstraint='and z.flag=0'
-#        ZptConstraint="""and z.imagename=i.filename and z.source='%s' and z.version='%s' %s""" % (ZptInfo['source'],ZptInfo['version'],ZptFlagConstraint)
+    # Make sure the GTT_FILENAME table is empty
+    curDB=dbh.cursor()
+    curDB.execute('delete from GTT_FILENAME')
+    # load img ids into opm_filename_gtt table
+    print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+#
+#   Query to obtain zeropoints 
+#
+    query="""SELECT 
+        gtt.filename as filename,
+        {zptdata:s}
+        i.expnum as expnum,
+        i.ccdnum as ccdnum
+    FROM {schema:s}image i, gtt_filename gtt{zpttable:s}
+    WHERE i.filename=gtt.filename
+       {zptconstraint:s}
+        """.format(
+            zptdata=ZptData,
+            schema=dbSchema,
+            zpttable=ZptTable,
+            zptconstraint=ZptConstraint)
 
+    if (verbose > 0):
+        print("# Executing query to obtain red_bkg images corresponding to the red_immasked images")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+#
+#   New image dictionary is formed so that images that do not return in this query are not returned
+
+    NewImgDict={}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName=rowd['filename']
+        if (ImgName in ImgDict):
+            NewImgDict[ImgName]=ImgDict[ImgName]
+            if ('mag_zero' in rowd):
+                NewImgDict[ImgName]['mag_zero']=rowd['mag_zero']
+#            NewImgList.append([ImgName])
+        else:
+            if (verbose > 2):
+                print(" No matching record? in query for zeropoint for (ImgName={:s} ".format(ImgName))
+
+    ImgDict=NewImgDict 
+#    ImgList=NewImgList
+    return ImgDict
+
+
+
+######################################################################################
+def query_blacklist(ImgDict,BlacklistInfo,dbh,dbSchema,verbose=0):
+    """ Query code to obtain zeropoints (and to remove blacklisted images) from an existing ImgDict 
+        Use an existing DB connection to execute a query to obtain ZEROPOINTs (and to remove blacklisted expsoures)
+        for an existing set of images.  If images in the input list are not returned (i.e. do not have a zeropoin
+        or have been blacklisted then they are removed from the dictionary that is returned.
+
+        Inputs:
+            ImgDict:    Existing ImgDict, new records are added (and possibly old records updated)
+            Blacklistnfo: Dictionary containing information about Blacklist Constraint 
+                          (NoneType yields no constraint)
+                            BlacklistInfo['table'] provides table to use
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            ImgDict:   Updated version of input ImgDict
+    """
 #
 #   Pre-assemble portions of query that pertain to the BLACKLIST (no constraint)
 #
@@ -131,64 +302,34 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
         BlacklistConstraint="""and not exists (select bl.reason from %s bl where bl.expnum=i.expnum and bl.ccdnum=i.ccdnum)""" % BlacklistInfo['table']
 
 #
-#   Pre-assemble constraint based on BandList
+#   Prepare GTT_FILENAME table with list of possible inputs 
 #
-    BandConstraint=''
-    if (len(BandList)>0):
-        BandConstraint="and i.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
-#
-#   Query to obtain images and associated metadata.  Note the current version may be
-#   counter-intuitive and makes two references to image: "image i" and "image j".  
-#   This is necessary for the workhorse portion of the query (image j) to make use 
-#   of the indices (over RACMIN, RACMAX...).  The second instance (image i)
-#   is necessary to obtain other infomration (e.g. band, expnum, ccdnum) in a way that 
-#   does not confuse Oracle into ignoring the index and instead executing the query as a 
-#   table scan.  Under our current database this may be fragile... also, experimentation
-#   has shown that this cannot be fixed by simply forcing the index with a runtime 
-#   directive (e.g. /* +index */
-#
-    
-#        {bandconstraint:s}
-#            bandconstraint=BandConstraint,
+    ImgList=[]
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
 
+    # Make sure the GTT_FILENAME table is empty
+    curDB=dbh.cursor()
+    curDB.execute('delete from GTT_FILENAME')
+    # load img ids into opm_filename_gtt table
+    print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+#
+#   Query to obtain zeropoints 
+#
     query="""SELECT 
-        i.filename as filename,
-        {zptdata:s}
-        i.band as band,
+        gtt.filename as filename,
         i.expnum as expnum,
-        i.ccdnum as ccdnum,
-        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
-        i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
-    FROM {schema:s}image i, {schema:s}proctag t{zpttable:s}
-    WHERE t.tag='{proctag:s}'
-        and t.pfw_attempt_id=i.pfw_attempt_id
-        and i.filetype='red_immask'
-        {zptconstraint:s}
-        and exists (
-            select 1
-            from {schema:s}image j, {schema:s}coaddtile_geom ct
-            WHERE j.filename=i.filename
-                AND ct.tilename = '{tile:s}'
-                AND ((ct.crossra0='N'
-                        AND ((j.racmin between ct.racmin and ct.racmax)OR(j.racmax between ct.racmin and ct.racmax))
-                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
-                    )OR(ct.crossra0='Y'
-                        AND ((j.racmin between ct.racmin and 360.)OR(j.racmin between 0.0 and ct.racmax)
-                            OR(j.racmax between ct.racmin and 360.)OR(j.racmax between 0.0 and ct.racmax))
-                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
-                    ))
-            )
-        {blackconstraint:s}""".format(
-            zptdata=ZptData,
+        i.ccdnum as ccdnum
+    FROM {schema:s}image i, gtt_filename gtt
+    WHERE i.filename=gtt.filename
+       {blackconstraint:s}
+        """.format(
             schema=dbSchema,
-            zpttable=ZptTable,
-            zptconstraint=ZptConstraint,
-            proctag=ProcTag,
-            tile=CoaddTile,
             blackconstraint=BlacklistConstraint)
 
     if (verbose > 0):
-        print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
+        print("# Executing query to remove blacklisted images")
         if (verbose == 1):
             print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
         if (verbose > 1):
@@ -196,32 +337,175 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,ZptInfo,BlacklistInfo,cur
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
+#
+#   New image dictionary is formed so that images that do not return in this query are not returned
+#
+    NewImgDict={}
     for row in curDB:
         rowd = dict(zip(desc, row))
-#        ImgName=rowd['filename']
-#        ImgDict[ImgName]=rowd
-        if (rowd['band'] in BandList):
-            ImgName=rowd['filename']
-            ImgDict[ImgName]=rowd
-        else:
-            if (verbose > 2):
-                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+        ImgName=rowd['filename']
+        if (ImgName in ImgDict):
+            NewImgDict[ImgName]=ImgDict[ImgName]
 
-#        if ('mag_zero' not in ImgDict[ImgName]):
-#            ImgDict[ImgName]['mag_zero']=30.0
-#
-#       Fix any known problematic NoneTypes before they get in the way.
-#
-#        if (ImgDict[ImgName]['band'] is None):
-#            ImgDict[ImgName]['band']='None'
-#        if (ImgDict[ImgName]['compression'] is None):
-#           ImgDict[ImgName]['compression']=''
+    if (verbose > 0):
+        print("# Blacklist removed {:d} of {:d} images.".format((len(ImgDict)-len(NewImgDict)),len(ImgDict)))
+
+    ImgDict=NewImgDict 
 
     return ImgDict
 
 
+
 ######################################################################################
-def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verbose=0):
+def query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
+    """ Query code to obtain BKG images associated with a set of red_immask images.
+        Use an existing DB connection to execute a query to obtain RED_BKG images
+        for an existing set of images.  
+
+        Inputs:
+            ImgDict:    Existing ImgDict
+            ArchiveSite: 
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            BkgDict:   Ouput dictionary of RED_BKG images
+    """
+#
+#   Prepare GTT_FILENAME table with list of possible inputs 
+#
+    ImgList=[]
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
+
+#   Setup DB cursor
+    curDB=dbh.cursor()
+#   Make sure teh GTT_FILENAME table is empty
+    curDB.execute('delete from GTT_FILENAME')
+#   Load img ids into opm_filename_gtt table
+    print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+
+#
+#   Obtain associated bkgd image (red_bkg).
+#
+    query="""SELECT 
+        i.filename as redfile,
+        fai.filename as filename,
+        fai.compression as compression,
+        k.band as band,
+        k.expnum as expnum,
+        k.ccdnum as ccdnum
+    FROM {schema:s}image i, {schema:s}image k, {schema:s}file_archive_info fai, GTT_FILENAME gtt
+    WHERE i.filename=gtt.filename
+        and i.pfw_attempt_id=k.pfw_attempt_id
+        and k.filetype='red_bkg'
+        and i.ccdnum=k.ccdnum
+        and k.filename=fai.filename
+        and fai.archive_name='{archive:s}'
+    """.format(schema=dbSchema,
+        archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain red_bkg images corresponding to the red_immasked images")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    BkgDict={}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName=rowd['redfile']
+#        BkgName=rowd['filename']
+        BkgDict[ImgName]=rowd
+#        if ('mag_zero' in ImgDict[ImgName]):
+#            BkgDict[ImgName]['mag_zero']=ImgDict[ImgName]['mag_zero']
+
+#            ImgDict[ImgName]['skyfilename']=rowd['skyfilename']
+#            ImgDict[ImgName]['skycompress']=rowd['skycompress']
+#        else:
+#            if (verbose > 2):
+#                print(" No matching record? in query for skyfilename for (ImgName={:s} ".format(ImgName))
+
+    return BkgDict
+
+
+
+######################################################################################
+def query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
+    """ Query code to obtain Segmentation Map Images (red_segmap) associated with a set of red_immask images.
+        Use an existing DB connection to execute a query to obtain RED_SEGMAP images
+        for an existing set of images.  
+
+        Inputs:
+            ImgDict:    Existing ImgDict
+            ArchiveSite: Archive_name 
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            SegDict:   Ouput dictionary of RED_BKG images
+    """
+#
+#   Prepare GTT_FILENAME table with list of possible inputs 
+#
+    ImgList=[]
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
+
+#   Setup DB cursor
+    curDB=dbh.cursor()
+#   Make sure teh GTT_FILENAME table is empty
+    curDB.execute('delete from GTT_FILENAME')
+#   load img ids into opm_filename_gtt table
+    print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+#
+#   Obtain associated segmentation map image (red_segmap).
+#
+    query="""SELECT 
+        i.filename as redfile,
+        fai.filename as filename,
+        fai.compression as compression,
+        m.band as band,
+        m.expnum as expnum,
+        m.ccdnum as ccdnum
+    FROM {schema:s}image i, {schema:s}miscfile m, {schema:s}file_archive_info fai, GTT_FILENAME gtt
+    WHERE i.filename=gtt.filename
+        and i.pfw_attempt_id=m.pfw_attempt_id
+        and m.filetype='red_segmap'
+        and i.ccdnum=m.ccdnum
+        and m.filename=fai.filename
+        and fai.archive_name='{archive:s}'
+    """.format(schema=dbSchema,archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain segmentation map images corresponding to the red_immasked images")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    SegDict={}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName=rowd['redfile']
+        SegDict[ImgName]=rowd
+#        if ('mag_zero' in ImgDict[ImgName]):
+#            SegDict[ImgName]['mag_zero']=ImgDict[ImgName]['mag_zero']
+
+    return SegDict
+
+
+######################################################################################
+def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,verbose=0):
     """ Query code to obtain image inputs for COADD (based on centers and extents of Tile/Imgs).
         Note this is an alternate version (and is currently non-performant).
 
@@ -234,7 +518,7 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,
             ImgDict:   Existing ImgDict, new records are added (and possibly old records updated)
             CoaddTile: Name of COADD tile for search
             ProcTag:   Processing Tag used to constrain pool of input images
-            curDB:     Database connection to be used
+            dbh:       Database connection to be used
             dbSchema:  Schema over which queries will occur.
             BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             verbose:   Integer setting level of verbosity when running.
@@ -322,6 +606,7 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,
             print("# sql = {:s} ".format(" ".join([d.strip() for d in query1.split('\n')])))
         if (verbose > 1):
             print("# sql = {:s}".format(query1))
+    curDB=dbh.cursor()
     curDB.execute(query1)
     for row in curDB:
         crossravalue=row[0]
@@ -369,7 +654,7 @@ def query_coadd_img_by_extent(ImgDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,
 
 
 ######################################################################################
-def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verbose=0):
+def query_astref_scampcat(CatDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,verbose=0):
     """ Query code to obtain inputs for COADD Astrorefine step.
         Use an existing DB connection to execute a query for CAT_SCAMP_FULL and 
         HEAD_SCAMP_FULL products from exposures that overlap a specific COADD tile.  
@@ -380,7 +665,7 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verb
             CatDict:   Existing CatDict, new records are added (and possibly old records updated)
             CoaddTile: Name of COADD tile for search
             ProcTag:   Processing Tag used to constrain pool of input images
-            curDB:     Database connection to be used
+            dbh:       Database connection to be used
             dbSchema:  Schema over which queries will occur.
             BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             verbose:   Integer setting level of verbosity when running.
@@ -451,6 +736,7 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verb
             print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
         if (verbose > 1):
             print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
@@ -469,7 +755,7 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verb
 
 
 ######################################################################################
-def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,verbose=0):
+def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,verbose=0):
     """ Query code to obtain inputs for COADD Astrorefine step.
         Use an existing DB connection to execute a query for CAT_FINALCUT products
         from exposures that overlap a specific COADD tile.  Return a dictionary 
@@ -542,6 +828,7 @@ def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,curDB,dbSchema,BandList,v
             print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
         if (verbose > 1):
             print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
@@ -573,13 +860,14 @@ def ImgDict_to_LLD(ImgDict,filetypes,mdatatypes,verbose=0):
     for Img in ImgDict:
         tmplist=[]
         for ftype in filetypes:
-            tmpdict={}
-            tmpdict['filename']=ImgDict[Img][ftype]
-            for mdata in mdatatypes:
-                if (mdata in ImgDict[Img]):
-                    tmpdict[mdata]=ImgDict[Img][mdata]
-            tmplist.append(tmpdict)
+#            for mdata in mdatatypes:
+#                if (mdata in ImgDict[Img]):
+#                    tmpdict[mdata]=ImgDict[Img][mdata]
+#            print tmpdict
+            tmplist.append(ImgDict[Img][ftype])
         OutLLD.append(tmplist)
+
+#    print OutLLD
 
     return OutLLD
 

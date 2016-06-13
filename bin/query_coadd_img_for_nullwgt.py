@@ -37,6 +37,7 @@ if __name__ == "__main__":
     parser.add_argument('--blacklist',  action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
     parser.add_argument('--bandlist',   action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
+    parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 2)')
@@ -53,6 +54,9 @@ if __name__ == "__main__":
         dbSchema=""
     else:
         dbSchema="%s." % (args.Schema)
+
+    ArchiveSite=args.archive
+    print(" Archive site will be constrained to {:s}".format(ArchiveSite))
 
     MagBase=args.magbase
     BandList=fwsplit(args.bandlist)
@@ -146,15 +150,26 @@ if __name__ == "__main__":
     except KeyError:
         desdmfile = None
     dbh = despydb.desdbi.DesDbi(desdmfile,args.section)
-    cur = dbh.cursor()
+#    cur = dbh.cursor()
 
     t0=time.time()
     ImgDict={}
-    ImgDict=me.query_coadd_img_by_edges(ImgDict,args.tile,args.proctag,ZptInfo,BlacklistInfo,cur,dbSchema,BandList,verbose)
+    ImgDict=me.query_coadd_img_by_edges(ImgDict,args.tile,args.proctag,BandList,ArchiveSite,dbh,dbSchema,verbose)
     print "Images Acquired by Query using edges for tile=%s" % (args.tile)
     print "    Execution Time: %.2f" % (time.time()-t0)
     print "    Img Dict size: ",len(ImgDict)
 
+    if (ZptInfo is not None):
+        ImgDict=me.query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose)
+        print "ZeroPoint query run " 
+        print "    Execution Time: %.2f" % (time.time()-t0)
+        print "    Img Dict size: ",len(ImgDict)
+
+    if (BlacklistInfo is not None):
+        ImgDict=me.query_blacklist(ImgDict,BlacklistInfo,dbh,dbSchema,verbose)
+        print "Blacklist query run " 
+        print "    Execution Time: %.2f" % (time.time()-t0)
+        print "    Img Dict size: ",len(ImgDict)
 #
 #   Convert zeropoint (mag_zero) into a fluxscale.
 #
@@ -164,6 +179,16 @@ if __name__ == "__main__":
         else:
             ImgDict[Img]['fluxscale']=1.0
 
+
+    BkgDict=me.query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
+    print " Bkg image query run"
+    print "    Execution Time: %.2f" % (time.time()-t0)
+    print "    Bkg Dict size: ",len(BkgDict)
+
+    SegDict=me.query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
+    print " Segmentation Map query run"
+    print "    Execution Time: %.2f" % (time.time()-t0)
+    print "    Seg Dict size: ",len(SegDict)
 #
 #   Close DB connection?
 #
@@ -184,9 +209,18 @@ if __name__ == "__main__":
 #
 #   Convert the ImgDict to an LLD (list of list of dictionaries)
 #
-    filetypes=['filename']
+    OutDict={}
+    for Img in ImgDict:
+        if ((Img in BkgDict)and(Img in SegDict)):
+            OutDict[Img]={}
+            OutDict[Img]['red']=ImgDict[Img]
+            OutDict[Img]['bkg']=BkgDict[Img]
+            OutDict[Img]['seg']=SegDict[Img]
+
+    filetypes=['red','bkg','seg']
     mdatatypes=['compression','expnum','ccdnum','band','mag_zero','fluxscale']
-    Img_LLD=me.ImgDict_to_LLD(ImgDict,filetypes,mdatatypes,verbose)
+    Img_LLD=me.ImgDict_to_LLD(OutDict,filetypes,mdatatypes,verbose)
+
 #
 #   If a high level of verbosity is present print the results.
 #
@@ -197,7 +231,7 @@ if __name__ == "__main__":
 #
 #   Here a function call is needed to take the Img_LLD and write results to the output file.
 #
-    Img_lines=queryutils.convert_multiple_files_to_lines(Img_LLD,['image'])
+    Img_lines=queryutils.convert_multiple_files_to_lines(Img_LLD,filetypes)
     queryutils.output_lines(args.outfile,Img_lines)
 
 #   Close up shop. 
