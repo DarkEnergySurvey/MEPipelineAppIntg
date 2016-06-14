@@ -5,6 +5,7 @@ import os
 import sys
 import time
 from despymisc.miscutils import elapsed_time
+import subprocess
 
 EXE = 'desmeds-make-meds-desdm'
 
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     # Run the code
     t0 = time.time()
     if not args.dryrun:
-        os.system(cmd)
+        subprocess.call(cmd,shell=True)
 
     # Done
     print "# MEDs creation time: %s" % elapsed_time(t0)
