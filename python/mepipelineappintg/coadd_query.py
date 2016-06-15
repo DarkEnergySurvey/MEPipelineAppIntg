@@ -123,8 +123,8 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,dbh,
         and exists (
             select 1
             from {schema:s}image j, {schema:s}coaddtile_geom ct
-            WHERE j.filename=i.filename
-                AND ct.tilename = '{tile:s}'
+            WHERE ct.tilename='{tile:s}'
+                AND j.filename=i.filename
                 AND ((ct.crossra0='N'
                         AND ((j.racmin between ct.racmin and ct.racmax)OR(j.racmax between ct.racmin and ct.racmax))
                         AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
@@ -141,6 +141,36 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,dbh,
             bandconstraint=BandConstraint,
             archive=ArchiveSite)
 
+#        {bandconstraint:s}
+#            bandconstraint=BandConstraint,
+    query="""SELECT 
+        fai.filename as filename,
+        fai.compression as compression,
+        i.band as band,
+        i.expnum as expnum,
+        i.ccdnum as ccdnum,
+        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
+        i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
+    FROM {schema:s}image i, {schema:s}file_archive_info fai, {schema:s}proctag t, {schema:s}coaddtile_geom ct
+    WHERE t.tag='{proctag:s}'
+        and t.pfw_attempt_id=i.pfw_attempt_id
+        and i.filetype='red_immask'
+        and i.filename=fai.filename
+        and fai.archive_name='{archive:s}' 
+        and ct.tilename = '{tile:s}'
+        and ((ct.crossra0='N'
+                AND ((i.racmin between ct.racmin and ct.racmax)OR(i.racmax between ct.racmin and ct.racmax))
+                AND ((i.deccmin between ct.deccmin and ct.deccmax)OR(i.deccmax between ct.deccmin and ct.deccmax))
+            )OR(ct.crossra0='Y'
+                AND ((i.racmin between ct.racmin and 360.)OR(i.racmin between 0.0 and ct.racmax)
+                    OR(i.racmax between ct.racmin and 360.)OR(i.racmax between 0.0 and ct.racmax))
+                AND ((i.deccmin between ct.deccmin and ct.deccmax)OR(i.deccmax between ct.deccmin and ct.deccmax))
+            ))""".format(
+            schema=dbSchema,
+            proctag=ProcTag,
+            tile=CoaddTile,
+            archive=ArchiveSite)
+
     if (verbose > 0):
         print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
         if (verbose == 1):
@@ -153,15 +183,15 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,dbh,
 
     for row in curDB:
         rowd = dict(zip(desc, row))
-        ImgName=rowd['filename']
-        ImgDict[ImgName]=rowd
-#        if (rowd['band'] in BandList):
-#            ImgName=rowd['filename']
-#            ImgDict[ImgName]=rowd
+#        ImgName=rowd['filename']
+#        ImgDict[ImgName]=rowd
+        if (rowd['band'] in BandList):
+            ImgName=rowd['filename']
+            ImgDict[ImgName]=rowd
 #            ImgList.append([ImgName])
-#        else:
-#            if (verbose > 2):
-#                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+        else:
+            if (verbose > 1):
+                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
 
     return ImgDict
 
@@ -502,6 +532,78 @@ def query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
 #            SegDict[ImgName]['mag_zero']=ImgDict[ImgName]['mag_zero']
 
     return SegDict
+
+
+
+######################################################################################
+def query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
+    """ Query code to obtain CAT_FINALCUT catalogs associated with a set of red_immask images.
+        Use an existing DB connection to execute a query to obtain RED_SEGMAP images
+        for an existing set of images.  
+
+        Inputs:
+            ImgDict:    Existing ImgDict
+            ArchiveSite: Archive_name 
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            CatDict:   Ouput dictionary of CAT_FINALCUT catalogs (only those associated with images in ImgDict)
+    """
+#
+#   Prepare GTT_FILENAME table with list of possible inputs 
+#
+    ImgList=[]
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
+
+#   Setup DB cursor
+    curDB=dbh.cursor()
+#   Make sure teh GTT_FILENAME table is empty
+    curDB.execute('delete from GTT_FILENAME')
+#   load img ids into opm_filename_gtt table
+    print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+#
+#   Obtain associated catlogs (cat_finalcut).
+#
+    query="""SELECT 
+        i.filename as redfile,
+        fai.filename as filename,
+        fai.compression as compression,
+        c.band as band,
+        c.expnum as expnum,
+        c.ccdnum as ccdnum
+    FROM {schema:s}image i, {schema:s}catalog c, {schema:s}file_archive_info fai, GTT_FILENAME gtt
+    WHERE i.filename=gtt.filename
+        and i.pfw_attempt_id=c.pfw_attempt_id
+        and c.filetype='cat_finalcut'
+        and i.ccdnum=c.ccdnum
+        and c.filename=fai.filename
+        and fai.archive_name='{archive:s}'
+    """.format(schema=dbSchema,archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain cat_finalcut catalogs corresponding to the red_immasked images")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    CatDict={}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName=rowd['redfile']
+        CatDict[ImgName]=rowd
+#        if ('mag_zero' in ImgDict[ImgName]):
+#            CatDict[ImgName]['mag_zero']=ImgDict[ImgName]['mag_zero']
+
+    return CatDict
+
+
 
 
 ######################################################################################
@@ -860,11 +962,19 @@ def ImgDict_to_LLD(ImgDict,filetypes,mdatatypes,verbose=0):
     for Img in ImgDict:
         tmplist=[]
         for ftype in filetypes:
+            tmpdict={}
+            for mdata in mdatatypes[ftype]:
+                if (mdata in ImgDict[Img][ftype]):
+                    tmpdict[mdata]=ImgDict[Img][ftype][mdata]
+                else:
+                    if (verbose > 0):
+                        print("Warning: missing metadata {:s} for image {:s}".format(mdata,ImgDict[Img][ftype]['filename']))
 #            for mdata in mdatatypes:
 #                if (mdata in ImgDict[Img]):
 #                    tmpdict[mdata]=ImgDict[Img][mdata]
 #            print tmpdict
-            tmplist.append(ImgDict[Img][ftype])
+#            tmplist.append(ImgDict[Img][ftype])
+            tmplist.append(tmpdict)
         OutLLD.append(tmplist)
 
 #    print OutLLD

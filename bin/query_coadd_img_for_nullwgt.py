@@ -189,6 +189,11 @@ if __name__ == "__main__":
     print " Segmentation Map query run"
     print "    Execution Time: %.2f" % (time.time()-t0)
     print "    Seg Dict size: ",len(SegDict)
+
+    CatDict=me.query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
+    print " Catalog query run"
+    print "    Execution Time: %.2f" % (time.time()-t0)
+    print "    Cat Dict size: ",len(CatDict)
 #
 #   Close DB connection?
 #
@@ -216,9 +221,13 @@ if __name__ == "__main__":
             OutDict[Img]['red']=ImgDict[Img]
             OutDict[Img]['bkg']=BkgDict[Img]
             OutDict[Img]['seg']=SegDict[Img]
+            OutDict[Img]['cat']=CatDict[Img]
 
-    filetypes=['red','bkg','seg']
-    mdatatypes=['compression','expnum','ccdnum','band','mag_zero','fluxscale']
+    filetypes=['red','bkg','seg','cat']
+    mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
+                'bkg':['filename','compression','expnum','ccdnum'],
+                'seg':['filename','compression','expnum','ccdnum'],
+                'cat':['filename','compression','expnum','ccdnum','band']}
     Img_LLD=me.ImgDict_to_LLD(OutDict,filetypes,mdatatypes,verbose)
 
 #
