@@ -216,7 +216,7 @@ if __name__ == "__main__":
 #
     OutDict={}
     for Img in ImgDict:
-        if ((Img in BkgDict)and(Img in SegDict)):
+        if ((Img in BkgDict)and(Img in SegDict)and(Img in CatDict)):
             OutDict[Img]={}
             OutDict[Img]['red']=ImgDict[Img]
             OutDict[Img]['bkg']=BkgDict[Img]
@@ -225,8 +225,8 @@ if __name__ == "__main__":
 
     filetypes=['red','bkg','seg','cat']
     mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
-                'bkg':['filename','compression','expnum','ccdnum'],
-                'seg':['filename','compression','expnum','ccdnum'],
+                'bkg':['filename','compression','expnum','ccdnum','band'],
+                'seg':['filename','compression','expnum','ccdnum','band'],
                 'cat':['filename','compression','expnum','ccdnum','band']}
     Img_LLD=me.ImgDict_to_LLD(OutDict,filetypes,mdatatypes,verbose)
 
