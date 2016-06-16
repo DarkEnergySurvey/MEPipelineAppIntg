@@ -49,6 +49,11 @@ if __name__ == "__main__":
     tileconf = data.pop('tileconf',None)
     with open(tileconf,'w') as tileconfig_output:
         for key, value in data.iteritems():
+
+            # Ignore args internal to the wrapper
+            if key == 'dryrun' or key == 'medsconf':
+                continue
+
             if isinstance(value, str):
                 value = '\"%s\"' % value
             tileconfig_output.write( "%-18s %s\n" %  (key+":", value))
