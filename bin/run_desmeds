@@ -11,7 +11,7 @@ EXE = 'desmeds-make-meds-desdm'
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Create the input yaml files for MED files")
+    parser = argparse.ArgumentParser(description="Create the input yaml files for MED files and runs it")
     parser.add_argument("--band", type=str, action="store",default=None, required=True,
                         help="Band")
     parser.add_argument("--coadd_cat", dest='coadd_cat_url', type=str,action="store",default=None, required=True,
@@ -32,10 +32,10 @@ if __name__ == "__main__":
                         help="The output MED name")
     parser.add_argument("--coadd_image_id", type=int, action="store",default=-1,
                         help="Coadd Image ID")
-    parser.add_argument("--yaml_fileconf", type=str, action="store",default=None, required=True,
-                        help="The new yaml fileconf file where we want to write to")
-    parser.add_argument("--yaml_genconf", type=str, action="store",default=None, required=True,
-                        help="The yaml general conf file")
+    parser.add_argument("--tileconf", type=str, action="store",default=None, required=True,
+                        help="The generated (yaml) output fileconf for the tile where we want run")
+    parser.add_argument("--medsconf", type=str, action="store",default=None, required=True,
+                        help="The general (yaml) conf file")
     parser.add_argument("--dryrun", action="store_true",default=False,
                         help="Print and exit?")
     
@@ -46,17 +46,17 @@ if __name__ == "__main__":
     data = vars(args)
 
     # Write the new yaml file, we pop from the dictionary
-    yaml_fileconf = data.pop('yaml_fileconf',None)
-    with open(yaml_fileconf,'w') as yaml_output:
+    tileconf = data.pop('tileconf',None)
+    with open(tileconf,'w') as tileconfig_output:
         for key, value in data.iteritems():
             if isinstance(value, str):
                 value = '\"%s\"' % value
-            yaml_output.write( "%-18s %s\n" %  (key+":", value))
+            tileconfig_output.write( "%-18s %s\n" %  (key+":", value))
 
-    print "# Wrote yaml configuration to: %s" % yaml_fileconf
+    print "# Wrote yaml configuration to: %s" % tileconf
 
     # Build the command
-    cmd =  "%s %s %s" % (EXE, args.yaml_genconf, yaml_fileconf)
+    cmd =  "%s %s %s" % (EXE, args.medsconf, tileconf)
     print "# Will execute:"
     print "# \t%s" % cmd
     print "# From full call:"
