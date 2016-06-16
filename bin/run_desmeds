@@ -22,7 +22,7 @@ if __name__ == "__main__":
                         help="The name of the coadd SExtractor ")
     parser.add_argument("--coadd_magzp", type=float, action="store",default=30.0,
                         help="The coadd magnitude zero point")
-    parser.add_argument("--ngwint_flist",type=str, action="store",default=None, required=True,
+    parser.add_argument("--nwgint_flist", dest='ngwint_flist', type=str, action="store",default=None, required=True,
                         help="File list with ngwint images")
     parser.add_argument("--seg_flist", type=str, action="store",default=None, required=True,
                         help="File list with segmentation images")
