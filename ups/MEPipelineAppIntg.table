@@ -1,5 +1,4 @@
 setupRequired(despydb 2.0.1+1)
-setupRequired(despymisc 1.0.3+1)
 setupRequired(IntegrationUtils 2.0.4+1)
 #setupRequired(pyyaml 3.11+2)
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
