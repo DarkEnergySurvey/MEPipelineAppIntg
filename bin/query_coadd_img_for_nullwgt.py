@@ -227,7 +227,7 @@ if __name__ == "__main__":
     mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
                 'bkg':['filename','compression','expnum','ccdnum','band'],
                 'seg':['filename','compression','expnum','ccdnum','band'],
-                'cat':['filename','compression','expnum','ccdnum','band']}
+                'cat':['filename','compression','expnum','ccdnum','band','mag_zero']}
     Img_LLD=me.ImgDict_to_LLD(OutDict,filetypes,mdatatypes,verbose)
 
 #

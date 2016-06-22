@@ -461,6 +461,8 @@ def query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
 #            if (verbose > 2):
 #                print(" No matching record? in query for skyfilename for (ImgName={:s} ".format(ImgName))
 
+    print ImgList
+    print BkgDict
     return BkgDict
 
 
@@ -598,8 +600,8 @@ def query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
         rowd = dict(zip(desc, row))
         ImgName=rowd['redfile']
         CatDict[ImgName]=rowd
-#        if ('mag_zero' in ImgDict[ImgName]):
-#            CatDict[ImgName]['mag_zero']=ImgDict[ImgName]['mag_zero']
+        if ('mag_zero' in ImgDict[ImgName]):
+            CatDict[ImgName]['mag_zero']=ImgDict[ImgName]['mag_zero']
 
     return CatDict
 
