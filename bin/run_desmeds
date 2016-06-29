@@ -69,8 +69,10 @@ if __name__ == "__main__":
 
     # Run the code
     t0 = time.time()
+    status = 0
     if not args.dryrun:
-        subprocess.call(cmd,shell=True)
+        status = subprocess.call(cmd,shell=True)
 
     # Done
     print "# MEDs creation time: %s" % elapsed_time(t0)
+    sys.exit(status)
