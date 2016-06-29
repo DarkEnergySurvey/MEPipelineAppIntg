@@ -62,6 +62,7 @@ if __name__ == "__main__":
 
     # Build the command
     cmd =  "%s %s %s" % (EXE, args.medsconf, tileconf)
+    sys.stdout.flush()
     print "# Will execute:"
     print "# \t%s" % cmd
     print "# From full call:"
@@ -71,6 +72,7 @@ if __name__ == "__main__":
     t0 = time.time()
     status = 0
     if not args.dryrun:
+        sys.stdout.flush()
         status = subprocess.call(cmd,shell=True)
 
     # Done
