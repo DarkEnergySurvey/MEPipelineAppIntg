@@ -6,7 +6,7 @@ bin_files = glob.glob("bin/*")
 
 # The main call
 setup(name='mepipelineappintg',
-      version ='1.0.3',
+      version ='1.0.4',
       license = "GPL",
       description = "A set python utils apps for the DES multiepoch pipeline",
       author = "Michelle Gower",
