@@ -30,8 +30,6 @@ if __name__ == "__main__":
                         help="File list with background images")
     parser.add_argument("--meds_output", dest='meds_url', type=str, action="store",default=None, required=True,
                         help="The output MED name")
-    parser.add_argument("--coadd_image_id", type=int, action="store",default=-1,
-                        help="Coadd Image ID")
     parser.add_argument("--tileconf", type=str, action="store",default=None, required=True,
                         help="The generated (yaml) output fileconf for the tile where we want run")
     parser.add_argument("--medsconf", type=str, action="store",default=None, required=True,
