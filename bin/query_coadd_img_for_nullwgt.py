@@ -149,7 +149,7 @@ if __name__ == "__main__":
         desdmfile = os.environ["des_services"]
     except KeyError:
         desdmfile = None
-    dbh = despydb.desdbi.DesDbi(desdmfile,args.section)
+    dbh = despydb.desdbi.DesDbi(desdmfile,args.section,retry=True)
 #    cur = dbh.cursor()
 
     t0=time.time()
@@ -177,6 +177,7 @@ if __name__ == "__main__":
         if ('mag_zero' in ImgDict[Img]):
             ImgDict[Img]['fluxscale']=10.**(0.4*(MagBase-ImgDict[Img]['mag_zero']))
         else:
+            ImgDict[Img]['mag_zero']=MagBase
             ImgDict[Img]['fluxscale']=1.0
 
 
@@ -210,6 +211,13 @@ if __name__ == "__main__":
                 ImgDict[Img]['band'],
                 ImgDict[Img]['fluxscale'],
                 ImgDict[Img]['filename']))
+
+    if (verbose > 0):
+        print(" ")
+        print("Summary results for COADD image imputs")
+        for band in BandList:
+            band_cnt=len([ImgDict[Img]['ccdnum'] for Img in ImgDict  if(ImgDict[Img]['band']==band)])
+            print("  Identified {:5d} images for {:s}-band".format(band_cnt,band))
 
 #
 #   Convert the ImgDict to an LLD (list of list of dictionaries)
