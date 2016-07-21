@@ -461,8 +461,8 @@ def query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
 #            if (verbose > 2):
 #                print(" No matching record? in query for skyfilename for (ImgName={:s} ".format(ImgName))
 
-    print ImgList
-    print BkgDict
+#    print ImgList
+#    print BkgDict
     return BkgDict
 
 
