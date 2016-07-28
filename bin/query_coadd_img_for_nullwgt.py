@@ -38,6 +38,7 @@ if __name__ == "__main__":
     parser.add_argument('--bandlist',   action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
     parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
+    parser.add_argument('--no_MEDs',  action='store_true', default=False, help='Suppress inclusion of BKGD and SEGMAP products')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 2)')
@@ -181,15 +182,17 @@ if __name__ == "__main__":
             ImgDict[Img]['fluxscale']=1.0
 
 
-    BkgDict=me.query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
-    print " Bkg image query run"
-    print "    Execution Time: %.2f" % (time.time()-t0)
-    print "    Bkg Dict size: ",len(BkgDict)
+    if (not(args.no_MEDs)):
+        BkgDict=me.query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
+        print " Bkg image query run"
+        print "    Execution Time: %.2f" % (time.time()-t0)
+        print "    Bkg Dict size: ",len(BkgDict)
 
-    SegDict=me.query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
-    print " Segmentation Map query run"
-    print "    Execution Time: %.2f" % (time.time()-t0)
-    print "    Seg Dict size: ",len(SegDict)
+    if (not(args.no_MEDs)):
+        SegDict=me.query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
+        print " Segmentation Map query run"
+        print "    Execution Time: %.2f" % (time.time()-t0)
+        print "    Seg Dict size: ",len(SegDict)
 
     CatDict=me.query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
     print " Catalog query run"
@@ -224,18 +227,29 @@ if __name__ == "__main__":
 #
     OutDict={}
     for Img in ImgDict:
-        if ((Img in BkgDict)and(Img in SegDict)and(Img in CatDict)):
-            OutDict[Img]={}
-            OutDict[Img]['red']=ImgDict[Img]
-            OutDict[Img]['bkg']=BkgDict[Img]
-            OutDict[Img]['seg']=SegDict[Img]
-            OutDict[Img]['cat']=CatDict[Img]
+        if (args.no_MEDs):
+            if (Img in CatDict):
+                OutDict[Img]={}
+                OutDict[Img]['red']=ImgDict[Img]
+                OutDict[Img]['cat']=CatDict[Img]
+        else:
+            if ((Img in BkgDict)and(Img in SegDict)and(Img in CatDict)):
+                OutDict[Img]={}
+                OutDict[Img]['red']=ImgDict[Img]
+                OutDict[Img]['bkg']=BkgDict[Img]
+                OutDict[Img]['seg']=SegDict[Img]
+                OutDict[Img]['cat']=CatDict[Img]
 
-    filetypes=['red','bkg','seg','cat']
-    mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
-                'bkg':['filename','compression','expnum','ccdnum','band'],
-                'seg':['filename','compression','expnum','ccdnum','band'],
-                'cat':['filename','compression','expnum','ccdnum','band','mag_zero']}
+    if (args.no_MEDs):
+        filetypes=['red','cat']
+        mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
+                    'cat':['filename','compression','expnum','ccdnum','band','mag_zero']}
+    else:
+        filetypes=['red','bkg','seg','cat']
+        mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
+                    'bkg':['filename','compression','expnum','ccdnum','band'],
+                    'seg':['filename','compression','expnum','ccdnum','band'],
+                    'cat':['filename','compression','expnum','ccdnum','band','mag_zero']}
     Img_LLD=me.ImgDict_to_LLD(OutDict,filetypes,mdatatypes,verbose)
 
 #
