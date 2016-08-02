@@ -36,6 +36,7 @@ if __name__ == "__main__":
     parser.add_argument('--zflag',      action='store', type=str, default=None, help='FLAG constraint on ZEROPOINT table to use in queries. (Default=None)')
     parser.add_argument('--blacklist',  action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
     parser.add_argument('--bandlist',   action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
+    parser.add_argument('--detbands',   action='store', type=str, default='r,i,z', help='Comma separated list of bands that must have at least one image present (Default="r,i,z").')
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
     parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
     parser.add_argument('--no_MEDs',  action='store_true', default=False, help='Suppress inclusion of BKGD and SEGMAP products')
@@ -62,6 +63,13 @@ if __name__ == "__main__":
     MagBase=args.magbase
     BandList=fwsplit(args.bandlist)
     print(" Proceeding with BAND constraint to include {:s}-band images".format(','.join([d.strip() for d in BandList])))
+
+    if (args.detbands.upper() == "NONE"):
+        DetBandList=[]
+        print(" Proceeding WITHOUT constraint that detection bands must have at least one image")
+    else:
+        DetBandList=fwsplit(args.detbands)
+        print(" Proceeding with constraint that all detection bands ({:s}) must have at least one image".format(','.join([d.strip() for d in DetBandList])))
 
 #
 #   Specify ZEROPOINT table for use
@@ -206,7 +214,7 @@ if __name__ == "__main__":
 #   If a high level of verbosity is present print the query results.
 #
     if (verbose > 2):
-        print("Query results for COADD (SWarp) inputs.")
+        print("Query results for COADD (SWarp) inputs, prior to mixing among catalogs")
         for Img in ImgDict:
             print(" {:8d} {:2d} {:5s} {:6.3f} {:s}".format(
                 ImgDict[Img]['expnum'],
@@ -215,23 +223,21 @@ if __name__ == "__main__":
                 ImgDict[Img]['fluxscale'],
                 ImgDict[Img]['filename']))
 
-    if (verbose > 0):
-        print(" ")
-        print("Summary results for COADD image imputs")
-        for band in BandList:
-            band_cnt=len([ImgDict[Img]['ccdnum'] for Img in ImgDict  if(ImgDict[Img]['band']==band)])
-            print("  Identified {:5d} images for {:s}-band".format(band_cnt,band))
-
 #
 #   Convert the ImgDict to an LLD (list of list of dictionaries)
+#   While doing the assembly get a count of number of Imgs per band
 #
     OutDict={}
+    BandCnt={}
+    for band in BandList:
+        BandCnt[band]=0
     for Img in ImgDict:
         if (args.no_MEDs):
             if (Img in CatDict):
                 OutDict[Img]={}
                 OutDict[Img]['red']=ImgDict[Img]
                 OutDict[Img]['cat']=CatDict[Img]
+                BandCnt[ImgDict[Img]['band']]=BandCnt[ImgDict[Img]['band']]+1
         else:
             if ((Img in BkgDict)and(Img in SegDict)and(Img in CatDict)):
                 OutDict[Img]={}
@@ -239,6 +245,7 @@ if __name__ == "__main__":
                 OutDict[Img]['bkg']=BkgDict[Img]
                 OutDict[Img]['seg']=SegDict[Img]
                 OutDict[Img]['cat']=CatDict[Img]
+                BandCnt[ImgDict[Img]['band']]=BandCnt[ImgDict[Img]['band']]+1
 
     if (args.no_MEDs):
         filetypes=['red','cat']
@@ -264,6 +271,34 @@ if __name__ == "__main__":
 #
     Img_lines=queryutils.convert_multiple_files_to_lines(Img_LLD,filetypes)
     queryutils.output_lines(args.outfile,Img_lines)
+
+#
+#   Provide a quick summary of the number of images found for COADD
+#
+    if (verbose > 0):
+        print(" ")
+        print("Summary results for COADD image imputs")
+        for band in BandList:
+            print("  Identified {:5d} images for {:s}-band".format(BandCnt[band],band))
+
+#
+#   Check that all bands that make up the detection image have at least one entry
+#
+    DetBandsOK=True
+    for band in DetBandList:
+        if (band not in BandCnt):
+            print("ERROR: no images present for {:s}-band (detection band constraint requires at least 1)".format(band))
+            DetBandsOK=False
+        else:
+            if (BandCnt[band] < 1):
+                print("ERROR: no images present for {:s}-band (detection band constraint requires at least 1)".format(band))
+                DetBandsOK=False
+#
+#   If not all bands are present Abort and throw non-zero exit.
+#
+    if (not(DetBandsOK)):
+        print("Aborting!")
+        exit(1)
 
 #   Close up shop. 
 
