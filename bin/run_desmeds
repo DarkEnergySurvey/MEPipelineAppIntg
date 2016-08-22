@@ -17,19 +17,17 @@ def make_coadd_object_map(args):
 
     """ Writes out a map between the SExtractor NUMBER and COADD_OBJECT.ID """
 
+    catname = os.path.basename(args.coadd_cat_url)
+
     # Get a dbh handle to query
     dbh = desdbi.DesDbi(section=args.db_section)
     # Format and query with query2rec
-    QUERY_MAP = "select OBJECT_NUMBER,ID from COADD_OBJECT where FILENAME='%s' order by object_number" % args.coadd_cat
-    map_data = despyastro.query2rec(QUERY,dbhandle=dbh)
-
-    # Write a fits file with the record array
-    # Adding BAND to the header
-    #header=fitsio.FITSHDR()
-    #header['BAND'] = band
+    QUERY_MAP = "select OBJECT_NUMBER,ID from COADD_OBJECT where FILENAME='%s' order by object_number" % catname
+    map_data = despyastro.query2rec(QUERY_MAP,dbhandle=dbh)
     
-    fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS',clobber=True,header=header)
-
+    # Write a fits file with the record array
+    fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS',clobber=True)
+    print "Wrote COADD_OBJECT map to: %s" % args.coadd_object_map
     return 
 
 if __name__ == "__main__":
@@ -45,7 +43,7 @@ if __name__ == "__main__":
                         help="The name of the coadd SExtractor ")
     parser.add_argument("--coadd_magzp", type=float, action="store",default=30.0,
                         help="The coadd magnitude zero point")
-    parser.add_argument("--nwg_flist", dest='nwgint_flist', type=str, action="store",default=None, required=True,
+    parser.add_argument("--nwg_flist", dest='ngwint_flist', type=str, action="store",default=None, required=True,
                         help="File list with ngwint images")
     parser.add_argument("--seg_flist", type=str, action="store",default=None, required=True,
                         help="File list with segmentation images")
@@ -71,7 +69,8 @@ if __name__ == "__main__":
     data = vars(args)
 
     # Make the coadd_objects maps if requested
-    if args.coadd_object_map and not args.dryrun:
+    #if args.coadd_object_map and not args.dryrun:
+    if args.coadd_object_map:
         make_coadd_object_map(args)
     else:
         del data['coadd_object_map']
@@ -82,7 +81,7 @@ if __name__ == "__main__":
         for key, value in data.iteritems():
 
             # Ignore args internal to the wrapper
-            if key == 'dryrun' or key == 'medsconf' or 'db_section':
+            if key == 'dryrun' or key == 'medsconf' or key == 'db_section':
                 continue
 
             if isinstance(value, str):
