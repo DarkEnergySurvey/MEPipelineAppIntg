@@ -130,7 +130,7 @@ if __name__ == "__main__":
             print(" No ZEROPOINT table specified. Constaint on {ZEROPOINT}.FLAG ignored.")
         else:
             ZptInfo['flag']=args.zflag
-            print("   Adding constraint on ZEROPOINT using FLAG='{:s}'.".format(ZptInfo['flag']))
+            print("   Adding constraint on ZEROPOINT using FLAG<{:s}.".format(ZptInfo['flag']))
     else:
         if (ZptInfo is not None):
             print("   Skipping constraint on ZEROPOINT using FLAG")
