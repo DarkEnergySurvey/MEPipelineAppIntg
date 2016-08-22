@@ -7,7 +7,30 @@ import time
 from despymisc.miscutils import elapsed_time
 import subprocess
 
+import fitsio
+import despyastro
+from despydb import desdbi
+
 EXE = 'desmeds-make-meds-desdm'
+
+def make_coadd_object_map(args):
+
+    """ Writes out a map between the SExtractor NUMBER and COADD_OBJECT.ID """
+
+    # Get a dbh handle to query
+    dbh = desdbi.DesDbi(section=args.db_section)
+    # Format and query with query2rec
+    QUERY_MAP = "select OBJECT_NUMBER,ID from COADD_OBJECT where FILENAME='%s' order by object_number" % args.coadd_cat
+    map_data = despyastro.query2rec(QUERY,dbhandle=dbh)
+
+    # Write a fits file with the record array
+    # Adding BAND to the header
+    #header=fitsio.FITSHDR()
+    #header['BAND'] = band
+    
+    fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS',clobber=True,header=header)
+
+    return 
 
 if __name__ == "__main__":
 
@@ -22,12 +45,16 @@ if __name__ == "__main__":
                         help="The name of the coadd SExtractor ")
     parser.add_argument("--coadd_magzp", type=float, action="store",default=30.0,
                         help="The coadd magnitude zero point")
-    parser.add_argument("--nwg_flist", dest='ngwint_flist', type=str, action="store",default=None, required=True,
+    parser.add_argument("--nwg_flist", dest='nwgint_flist', type=str, action="store",default=None, required=True,
                         help="File list with ngwint images")
     parser.add_argument("--seg_flist", type=str, action="store",default=None, required=True,
                         help="File list with segmentation images")
     parser.add_argument("--bkg_flist", type=str, action="store",default=None, required=True,
                         help="File list with background images")
+    parser.add_argument("--coadd_object_map", type=str, action="store",default=None,
+                        help="File with map between COADD_OBJECT ID and SExtractor OBJECT_NUMBER")
+    parser.add_argument("--db_section", type=str, action="store",default=None, #choices=['db-desoper','db-destest'],
+                        help="Database section to connect")
     parser.add_argument("--meds_output", dest='meds_url', type=str, action="store",default=None, required=True,
                         help="The output MED name")
     parser.add_argument("--tileconf", type=str, action="store",default=None, required=True,
@@ -40,8 +67,14 @@ if __name__ == "__main__":
     # Parse the args and get the extras
     args = parser.parse_args()
 
-    # Make it a dictionary
+    # Make it a dictionary we can pop items out of it
     data = vars(args)
+
+    # Make the coadd_objects maps if requested
+    if args.coadd_object_map and not args.dryrun:
+        make_coadd_object_map(args)
+    else:
+        del data['coadd_object_map']
 
     # Write the new yaml file, we pop from the dictionary
     tileconf = data.pop('tileconf',None)
@@ -49,7 +82,7 @@ if __name__ == "__main__":
         for key, value in data.iteritems():
 
             # Ignore args internal to the wrapper
-            if key == 'dryrun' or key == 'medsconf':
+            if key == 'dryrun' or key == 'medsconf' or 'db_section':
                 continue
 
             if isinstance(value, str):
