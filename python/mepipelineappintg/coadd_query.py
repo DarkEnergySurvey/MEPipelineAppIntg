@@ -242,7 +242,7 @@ def query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose=0):
         if ('flag' in ZptInfo):
             ZptFlagConstraint='and z.flag<{:s}'.format(ZptInfo['flag'])
 
-        ZptConstraint="""and z.imagename=i.filename %s %s %s""" % (ZptSrcConstraint,ZptVerConstraint,ZptFlagConstraint)
+        ZptConstraint="""and z.imagename=i.filename and z.mag_zero>-100. %s %s %s""" % (ZptSrcConstraint,ZptVerConstraint,ZptFlagConstraint)
 #
 #   Prepare GTT_FILENAME table with list of possible inputs 
 #
