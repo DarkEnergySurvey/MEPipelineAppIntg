@@ -37,6 +37,8 @@ if __name__ == "__main__":
     parser.add_argument('--blacklist',  action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
     parser.add_argument('--bandlist',   action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
     parser.add_argument('--detbands',   action='store', type=str, default='r,i,z', help='Comma separated list of bands that must have at least one image present (Default="r,i,z").')
+    parser.add_argument('--fiat_table',  action='store', type=str, default='Y3A1_IMAGE_TO_TILE', help='Optional table that contains a direct correspondence between image (FILENAME) and tile (TILENAME). (Default=Y3A1_IMAGE_TO_TILE)')
+    parser.add_argument('--brute_force', action='store_true', default=False, help='Redirects query to obtain images by making a brute force comparison between IMAGE table and COADDTILE_GEOM (Default=False)')
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
     parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
     parser.add_argument('--no_MEDs',  action='store_true', default=False, help='Suppress inclusion of BKGD and SEGMAP products')
@@ -149,6 +151,18 @@ if __name__ == "__main__":
             BlacklistInfo['table']='%s%s' % (dbSchema,args.blacklist)
         print(" Proceeding with constraints using {:s} for BLACKLIST constraint.".format(BlacklistInfo['table']))
 
+#
+#   Specify Fiat TABLE (table that declares image to tile correspondence).
+#
+    if (len(args.fiat_table.split('.')) > 1):
+        FiatTable=args.fiat_table
+    else:
+        FiatTable='%s%s' % (dbSchema,args.fiat_table)
+    if (not(args.brute_force)):
+        print(" Proceeding with constraints using {:s} to tie Image to Tiles.".format(FiatTable))
+    else:
+        print(" Will perform a brute force query to tie Image to Tiles.")
+
 #   Finished rationalizing input
 ########################################################
 #
@@ -163,8 +177,13 @@ if __name__ == "__main__":
 
     t0=time.time()
     ImgDict={}
-    ImgDict=me.query_coadd_img_by_edges(ImgDict,args.tile,args.proctag,BandList,ArchiveSite,dbh,dbSchema,verbose)
-    print "Images Acquired by Query using edges for tile=%s" % (args.tile)
+    if (args.brute_force):
+        print "Images Acquired by Brute Force Query using edges for tile=%s" % (args.tile)
+        ImgDict=me.query_coadd_img_by_edges(ImgDict,args.tile,args.proctag,BandList,ArchiveSite,dbh,dbSchema,verbose)
+    else:
+        print "Images Acquired by Pre-computed relationship between Images and Tile for tile=%s" % (args.tile)
+        ImgDict=me.query_coadd_img_by_fiat(ImgDict,args.tile,args.proctag,BandList,ArchiveSite,FiatTable,dbh,dbSchema,verbose)
+
     print "    Execution Time: %.2f" % (time.time()-t0)
     print "    Img Dict size: ",len(ImgDict)
 

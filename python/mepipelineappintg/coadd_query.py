@@ -105,41 +105,41 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,dbh,
 #   directive (e.g. /* +index */
 #
     
-    query="""SELECT 
-        fai.filename as filename,
-        fai.compression as compression, 
-        i.band as band,
-        i.expnum as expnum,
-        i.ccdnum as ccdnum,
-        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
-        i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
-    FROM {schema:s}image i, {schema:s}file_archive_info fai, {schema:s}proctag t
-    WHERE t.tag='{proctag:s}'
-        and t.pfw_attempt_id=i.pfw_attempt_id
-        and i.filetype='red_immask'
-        and i.filename=fai.filename
-        {bandconstraint:s}
-        and fai.archive_name='{archive:s}' 
-        and exists (
-            select 1
-            from {schema:s}image j, {schema:s}coaddtile_geom ct
-            WHERE ct.tilename='{tile:s}'
-                AND j.filename=i.filename
-                AND ((ct.crossra0='N'
-                        AND ((j.racmin between ct.racmin and ct.racmax)OR(j.racmax between ct.racmin and ct.racmax))
-                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
-                    )OR(ct.crossra0='Y'
-                        AND ((j.racmin between ct.racmin and 360.)OR(j.racmin between 0.0 and ct.racmax)
-                            OR(j.racmax between ct.racmin and 360.)OR(j.racmax between 0.0 and ct.racmax))
-                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
-                    ))
-            )
-        """.format(
-            schema=dbSchema,
-            proctag=ProcTag,
-            tile=CoaddTile,
-            bandconstraint=BandConstraint,
-            archive=ArchiveSite)
+#    query="""SELECT 
+#        fai.filename as filename,
+#        fai.compression as compression, 
+#        i.band as band,
+#        i.expnum as expnum,
+#        i.ccdnum as ccdnum,
+#        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
+#        i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
+#    FROM {schema:s}image i, {schema:s}file_archive_info fai, {schema:s}proctag t
+#    WHERE t.tag='{proctag:s}'
+#        and t.pfw_attempt_id=i.pfw_attempt_id
+#        and i.filetype='red_immask'
+#        and i.filename=fai.filename
+#        {bandconstraint:s}
+#        and fai.archive_name='{archive:s}' 
+#        and exists (
+#            select 1
+#            from {schema:s}image j, {schema:s}coaddtile_geom ct
+#            WHERE ct.tilename='{tile:s}'
+#                AND j.filename=i.filename
+#                AND ((ct.crossra0='N'
+#                        AND ((j.racmin between ct.racmin and ct.racmax)OR(j.racmax between ct.racmin and ct.racmax))
+#                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
+#                    )OR(ct.crossra0='Y'
+#                        AND ((j.racmin between ct.racmin and 360.)OR(j.racmin between 0.0 and ct.racmax)
+#                            OR(j.racmax between ct.racmin and 360.)OR(j.racmax between 0.0 and ct.racmax))
+#                        AND ((j.deccmin between ct.deccmin and ct.deccmax)OR(j.deccmax between ct.deccmin and ct.deccmax))
+#                    ))
+#            )
+#        """.format(
+#            schema=dbSchema,
+#            proctag=ProcTag,
+#            tile=CoaddTile,
+#            bandconstraint=BandConstraint,
+#            archive=ArchiveSite)
 
 #        {bandconstraint:s}
 #            bandconstraint=BandConstraint,
@@ -170,6 +170,97 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,dbh,
             proctag=ProcTag,
             tile=CoaddTile,
             archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+#        ImgName=rowd['filename']
+#        ImgDict[ImgName]=rowd
+        if (rowd['band'] in BandList):
+            ImgName=rowd['filename']
+            ImgDict[ImgName]=rowd
+#            ImgList.append([ImgName])
+        else:
+            if (verbose > 1):
+                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+
+    return ImgDict
+
+
+######################################################################################
+def query_coadd_img_by_fiat(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,FiatTable,dbh,dbSchema,verbose=0):
+    """ Query code to obtain image inputs for COADD (based on a pre-constructed
+        mapping of filenames to tilenames).  THIS IS A MASSIVE CHEAT AND ASSSUMES
+        THAT ALL WORK HAS BEEN DONE AHEAD OF TIME.  IT IS VERY SUCCEPTIBLE TO 
+        CHANGES IN THE INPUT LIST OF IMAGES AND/OR TILES>
+
+        Use an existing DB connection to execute a query for RED_IMMASK image
+        products that overlap a spsecic COADD tile.
+        Return a dictionary of Images along with with basic properties (expnum, 
+        ccdnum, band, nite).
+
+        Inputs:
+            ImgDict:   Existing ImgDict, new records are added (and possibly old records updated)
+            CoaddTile: Name of COADD tile for search
+            ProcTag:   Processing Tag used to constrain pool of input images
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
+            ArchiveSite: Constraint that data/files exist within a specific archive
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            ImgDict:   Updated version of input ImgDict
+    """
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and i.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
+#
+#   Query to obtain images and associated metadata.  Note the current version may be
+#   counter-intuitive and makes two references to image: "image i" and "image j".  
+#   This is necessary for the workhorse portion of the query (image j) to make use 
+#   of the indices (over RACMIN, RACMAX...).  The second instance (image i)
+#   is necessary to obtain other infomration (e.g. band, expnum, ccdnum) in a way that 
+#   does not confuse Oracle into ignoring the index and instead executing the query as a 
+#   table scan.  Under our current database this may be fragile... also, experimentation
+#   has shown that this cannot be fixed by simply forcing the index with a runtime 
+#   directive (e.g. /* +index */
+#
+    
+    query="""SELECT 
+        fai.filename as filename,
+        fai.compression as compression,
+        i.band as band,
+        i.expnum as expnum,
+        i.ccdnum as ccdnum,
+        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
+        i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
+    FROM {schema:s}image i, {schema:s}file_archive_info fai, {schema:s}proctag t, {ftab:s} y
+    WHERE t.tag='{proctag:s}'
+        and t.pfw_attempt_id=i.pfw_attempt_id
+        and i.filetype='red_immask'
+        and i.filename=fai.filename
+        and fai.archive_name='{archive:s}' 
+        and i.filename=y.filename
+        and y.tilename='{tile:s}' 
+        """.format(
+        schema=dbSchema,
+        ftab=FiatTable,
+        proctag=ProcTag,
+        tile=CoaddTile,
+        archive=ArchiveSite)
 
     if (verbose > 0):
         print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
@@ -857,6 +948,101 @@ def query_astref_scampcat(CatDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,verbos
     return CatDict
 
 
+######################################################################################
+def query_astref_scampcat_by_fiat(CatDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,FiatTable,verbose=0):
+    """ Query code to obtain inputs for COADD Astrorefine step.
+        Use an existing DB connection to execute a query for CAT_SCAMP_FULL and 
+        HEAD_SCAMP_FULL products from exposures that overlap a specific COADD tile.  
+        Return a dictionary of Catalogs and Head files along associated metadata
+        (expnum,band,nite).
+
+        NOTE: This version uses A MASSIVE CHEAT (compared to query_astref_catfinalcut).  It uses
+            a table with predefined correspondence between IMAGEs and TILEs.  It is very succeptible
+            to changes in the input list that formed that predefined table.
+
+        Inputs:
+            CatDict:   Existing CatDict, new records are added (and possibly old records updated)
+            CoaddTile: Name of COADD tile for search
+            ProcTag:   Processing Tag used to constrain pool of input images
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
+            FiatTable: Predefined table showing correspondence between IMAGEs and TILEs.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            CatDict:   Updated version of input CatDict
+    """
+
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and c.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
+
+#
+#   Form the query to obtain the cat_scamp_full files.
+#
+    query="""
+        SELECT 
+            c.filename as catfile,
+            m.filename as headfile,
+            m.expnum as expnum,
+            m.band as band,
+            listagg(d.ccdnum,',') within group (order by d.ccdnum) as ccdnum
+        FROM
+            {schema:s}miscfile m, {schema:s}catalog c, {schema:s}catalog d, {schema:s}proctag t
+        WHERE t.tag='{proctag:s}'
+            and t.pfw_attempt_id=c.pfw_attempt_id
+            and c.filetype='cat_scamp_full'
+            {bandconstraint:s}
+            and d.pfw_attempt_id=c.pfw_attempt_id
+            and d.filetype='cat_scamp'
+            and c.pfw_attempt_id=m.pfw_attempt_id
+            and m.filetype='head_scamp_full'
+            and m.expnum=c.expnum
+            and m.expnum=d.expnum
+            and exists (
+                SELECT 
+                    1
+                FROM
+                    {schema:s}image i, {ftab:s} y
+                WHERE i.expnum=c.expnum
+                    and t.pfw_attempt_id=i.pfw_attempt_id
+                    and i.filetype='red_immask'
+                    and i.filename=y.filename
+                    and y.tilename='{tile:s}'
+            )
+            group by c.filename,m.filename,m.expnum,m.band """.format(
+                schema=dbSchema,
+                proctag=ProcTag,
+                bandconstraint=BandConstraint,
+                ftab=FiatTable,
+                tile=CoaddTile)
+
+    if (verbose > 0):
+        print("# Executing query to obtain CAT_SCAMP_FULL catalogs")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        expnum=rowd['expnum']
+        CatDict[expnum]=rowd
+#
+#       Fix any known problematic NoneTypes before they get in the way.
+#
+#        if (CatDict[expnum]['band'] is None):
+#            CatDict[expnum]['band']='None'
+
+    return CatDict
+
 
 ######################################################################################
 def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,verbose=0):
@@ -948,6 +1134,92 @@ def query_astref_catfinalcut(CatDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,ver
 
     return CatDict
 
+
+######################################################################################
+def query_astref_catfinalcut_by_fiat(CatDict,CoaddTile,ProcTag,dbh,dbSchema,BandList,FiatTable,verbose=0):
+    """ Query code to obtain inputs for COADD Astrorefine step.
+        Use an existing DB connection to execute a query for CAT_FINALCUT products
+        from exposures that overlap a specific COADD tile.  Return a dictionary 
+        of Catalogs along associated metadata (expnum,band,nite).
+
+        NOTE: This version uses A MASSIVE CHEAT (compared to query_astref_catfinalcut).  It uses
+            a table with predefined correspondence between IMAGEs and TILEs.  It is very succeptible
+            to changes in the input list that formed that predefined table.
+
+        Inputs:
+            CatDict:   Existing CatDict, new records are added (and possibly old records updated)
+            CoaddTile: Name of COADD tile for search
+            ProcTag:   Processing Tag used to constrain pool of input images
+            curDB:     Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
+            FiatTable: Predefined table showing correspondence between IMAGEs and TILEs.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            CatDict:   Updated version of input CatDict
+    """
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and c.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
+
+#
+#   Form the query to obtain the cat_finalcut files
+#
+    query="""
+        SELECT 
+            c.filename as catfile,
+            c.expnum as expnum,
+            c.ccdnum as ccdnum,
+            c.band as band
+        FROM
+            {schema:s}catalog c, {schema:s}proctag t
+        WHERE t.tag='{proctag:s}'
+            and t.pfw_attempt_id=c.pfw_attempt_id
+            and c.filetype='cat_finalcut'
+            {bandconstraint:s}
+            and exists (
+                SELECT 
+                    1
+                FROM
+                    {schema:s}image i, {ftab:s} y
+                WHERE i.expnum=c.expnum
+                    and t.pfw_attempt_id=i.pfw_attempt_id
+                    and i.filetype='red_immask'
+                    and i.filename=y.filename
+                    and y.tilename='{tile:s}'
+            )
+            order by c.expnum,c.ccdnum """.format(
+                schema=dbSchema,
+                proctag=ProcTag,
+                bandconstraint=BandConstraint,
+                ftab=FiatTable,
+                tile=CoaddTile)
+
+    if (verbose > 0):
+        print("# Executing query to obtain CAT_FINALCUT catalogs")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        catfile=rowd['catfile']
+        CatDict[catfile]=rowd
+#
+#       Fix any known problematic NoneTypes before they get in the way.
+#
+#        if (CatDict[expnum]['band'] is None):
+#            CatDict[expnum]['band']='None'
+
+    return CatDict
 
 
 ######################################################################################

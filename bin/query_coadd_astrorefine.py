@@ -35,6 +35,8 @@ if __name__ == "__main__":
     parser.add_argument('-t', '--tile',    action='store', type=str, required=True, help='COADD tile name for which to asssemble inputs')
     parser.add_argument('-o', '--outfile', action='store', type=str, required=True, help='Output list to be returned for the framework')
     parser.add_argument('--bandlist',      action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
+    parser.add_argument('--fiat_table',  action='store', type=str, default='Y3A1_IMAGE_TO_TILE', help='Optional table that contains a direct correspondence between image (FILENAME) and tile (TILENAME). (Default=Y3A1_IMAGE_TO_TILE)')
+    parser.add_argument('--brute_force', action='store_true', default=False, help='Redirects query to obtain images by making a brute force comparison between IMAGE table and COADDTILE_GEOM (Default=False)')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 3)')
@@ -59,6 +61,19 @@ if __name__ == "__main__":
     print(" Proceeding with BAND constraint to include {:s}-band images".format(','.join([d.strip() for d in BandList])))
 
 #
+#   Specify Fiat TABLE (table that declares image to tile correspondence).
+#
+    if (len(args.fiat_table.split('.')) > 1):
+        FiatTable=args.fiat_table
+    else:
+        FiatTable='%s%s' % (dbSchema,args.fiat_table)
+    if (not(args.brute_force)):
+        print(" Proceeding with constraints using {:s} to tie Images (and hence catalogs) to Tiles.".format(FiatTable))
+    else:
+        print(" Will perform a brute force query to tie Catalogs to Tiles.")
+
+
+#
 #   Setup a DB connection
 #
     try:
@@ -72,9 +87,15 @@ if __name__ == "__main__":
     CatDict={}
 
     if (cattype == 'SCAMPCAT'):
-        CatDict=me.query_astref_scampcat(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,verbose)
+        if (args.brute_force):
+            CatDict=me.query_astref_scampcat(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,verbose)
+        else:
+            CatDict=me.query_astref_scampcat_by_fiat(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,FiatTable,verbose)
     else:
-        CatDict=me.query_astref_catfinalcut(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,verbose)
+        if (args.brute_force):
+            CatDict=me.query_astref_catfinalcut(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,verbose)
+        else:
+            CatDict=me.query_astref_catfinalcut_by_fiat(CatDict,args.tile,args.proctag,dbh,dbSchema,BandList,FiatTable,verbose)
 
     print " "
     print "CATs Acquired by Query using edges for tile=%s" % (args.tile)
