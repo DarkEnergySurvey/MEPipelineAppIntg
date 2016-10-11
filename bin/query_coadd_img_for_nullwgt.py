@@ -42,9 +42,10 @@ if __name__ == "__main__":
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
     parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
     parser.add_argument('--no_MEDs',  action='store_true', default=False, help='Suppress inclusion of BKGD and SEGMAP products')
+    parser.add_argument('--imglist',  action='store', type=str, default=None, help='Optional output of a txt-file listing showing expnum, ccdnum, band, zeropoint') 
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
-    parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 2)')
+    parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 4)')
     args = parser.parse_args()
     if (args.verbose):
         print "Args: ",args
@@ -299,6 +300,26 @@ if __name__ == "__main__":
         print("Summary results for COADD image imputs")
         for band in BandList:
             print("  Identified {:5d} images for {:s}-band".format(BandCnt[band],band))
+#
+#   Secondary (optional) output of a list of images found by the query.
+#
+    if (args.imglist is not None):
+        imgfile=open(args.imglist,'w')
+        for Img in ImgDict:
+            wrec=False
+            if (args.no_MEDs):
+                if (Img in CatDict):
+                    wrec=True
+            else:
+                if ((Img in BkgDict)and(Img in SegDict)and(Img in CatDict)):
+                    wrec=True
+            if (wrec):
+                imgfile.write(" {enum:8d} {cnum:2d} {bnd:5s} {zpt:8.5f}\n".format(
+                    enum=ImgDict[Img]['expnum'],
+                    cnum=ImgDict[Img]['ccdnum'],
+                    bnd=ImgDict[Img]['band'],
+                    zpt=ImgDict[Img]['mag_zero']))
+        imgfile.close()
 
 #
 #   Check that all bands that make up the detection image have at least one entry
