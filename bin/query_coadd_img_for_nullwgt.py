@@ -40,6 +40,10 @@ if __name__ == "__main__":
     parser.add_argument('--fiat_table',  action='store', type=str, default='Y3A1_IMAGE_TO_TILE', help='Optional table that contains a direct correspondence between image (FILENAME) and tile (TILENAME). (Default=Y3A1_IMAGE_TO_TILE)')
     parser.add_argument('--brute_force', action='store_true', default=False, help='Redirects query to obtain images by making a brute force comparison between IMAGE table and COADDTILE_GEOM (Default=False)')
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
+    parser.add_argument('--zpt2',     action='store', type=str, default=None, help='ZEROPOINT table to use secondary ZPT queries. (Default=None)')
+    parser.add_argument('--z2source',   action='store', type=str, default=None, help='SOURCE constraint on secondary ZPT queries. (Default=None)')
+    parser.add_argument('--z2version',  action='store', type=str, default=None, help='VERSION constraint on secondary ZPT queries. (Default=None)')
+    parser.add_argument('--z2flag',     action='store', type=str, default=None, help='FLAG constraint on secondary ZPT queries. (Default=None)')
     parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
     parser.add_argument('--no_MEDs',  action='store_true', default=False, help='Suppress inclusion of BKGD and SEGMAP products')
     parser.add_argument('--imglist',  action='store', type=str, default=None, help='Optional output of a txt-file listing showing expnum, ccdnum, band, zeropoint') 
@@ -104,7 +108,7 @@ if __name__ == "__main__":
 #
     if (args.zsource is not None):
         if (ZptInfo is None):
-            print(" No ZEROPOINT table specified. Constaint on {ZEROPOINT}.SOURCE ignored.")
+            print(" No ZEROPOINT table specified. Constraint on {ZEROPOINT}.SOURCE ignored.")
         else:
             ZptInfo['source']=args.zsource
             print("   Adding constraint on ZEROPOINT using SOURCE='{:s}'.".format(ZptInfo['source']))
@@ -117,7 +121,7 @@ if __name__ == "__main__":
 #
     if (args.zversion is not None):
         if (ZptInfo is None):
-            print(" No ZEROPOINT table specified. Constaint on {ZEROPOINT}.VERSION ignored.")
+            print(" No ZEROPOINT table specified. Constraint on {ZEROPOINT}.VERSION ignored.")
         else:
             ZptInfo['version']=args.zversion
             print("   Adding constraint on ZEROPOINT using VERSION='{:s}'.".format(ZptInfo['version']))
@@ -130,7 +134,7 @@ if __name__ == "__main__":
 #
     if (args.zflag is not None):
         if (ZptInfo is None):
-            print(" No ZEROPOINT table specified. Constaint on {ZEROPOINT}.FLAG ignored.")
+            print(" No ZEROPOINT table specified. Constraint on {ZEROPOINT}.FLAG ignored.")
         else:
             ZptInfo['flag']=args.zflag
             print("   Adding constraint on ZEROPOINT using FLAG<{:s}.".format(ZptInfo['flag']))
@@ -138,6 +142,48 @@ if __name__ == "__main__":
         if (ZptInfo is not None):
             print("   Skipping constraint on ZEROPOINT using FLAG")
 
+#
+#   Secondary ZEROPOINT capablity/constraint
+#
+    if (args.zpt2 is None):
+        ZptSecondary=None
+        print(" No secondary ZPT query requested.")
+    else:
+        ZptSecondary={}
+        if (len(args.zpt2.split('.')) > 1):
+            ZptSecondary['table']=args.zpt2
+        else:
+            ZptSecondary['table']='%s%s' % (dbSchema,args.zpt2)
+        print(" Proceeding with constraints for secondary  using {:s} for ZEROPOINT constraints.".format(ZptInfo['table']))
+#
+#       Since a zeropoint table is being used... require that SOURCE and VERSION are present
+#
+        if ((args.z2source is None)or(args.z2version is None)):
+            print(" As --zpt2 constraint is active:")
+            if (args.z2source is None):
+                print("   --z2source {SOURCE} must be provided")
+            if (args.z2version is None):
+                print("   --z2version {VERSION} must be provided")
+            print(" Aborting!")
+            exit(1)
+#
+#       Constraint on secondary ZPT based on SOURCE
+#
+        if (args.z2source is not None):
+            ZptSecondary['source']=args.z2source
+            print("   Adding constraint on Secondary ZPT using SOURCE='{:s}'.".format(ZptSecondary['source']))
+#
+#       Constraint on secondary ZPT based on VERSION
+#
+        if (args.z2version is not None):
+            ZptSecondary['version']=args.z2version
+            print("   Adding constraint on Secondary ZPT using VERSION='{:s}'.".format(ZptSecondary['version']))
+#
+#       Constraint on secondary ZPT based on FLAGS
+#
+        if (args.zflag is not None):
+            ZptSecondary['flag']=args.z2flag
+            print("   Adding constraint on Secondary ZPT using FLAG<{:s}.".format(ZptSecondary['flag']))
 #
 #   Specify BLACKLIST table for use
 #
@@ -189,7 +235,7 @@ if __name__ == "__main__":
     print "    Img Dict size: ",len(ImgDict)
 
     if (ZptInfo is not None):
-        ImgDict=me.query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose)
+        ImgDict=me.query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose)
         print "ZeroPoint query run " 
         print "    Execution Time: %.2f" % (time.time()-t0)
         print "    Img Dict size: ",len(ImgDict)

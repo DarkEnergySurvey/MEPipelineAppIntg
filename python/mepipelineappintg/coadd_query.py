@@ -289,7 +289,7 @@ def query_coadd_img_by_fiat(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,FiatT
 
 
 ######################################################################################
-def query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose=0):
+def query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose=0):
     """ Query code to obtain zeropoints for a set of images in existing ImgDict.
         Use an existing DB connection to execute a query to obtain ZEROPOINTs 
         for an existing set of images.  If images in the input list are not 
@@ -304,6 +304,12 @@ def query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose=0):
                             ZptInfo['source']:  Zpt source constraint
                             ZptInfo['version']: Zpt version constraint
                             ZptInfo['flag']:    Zpt flag constraint
+            ZptSecondary: Dictionary containing information about Secondary Zeropoint Query/Constraint 
+                        (NoneType yields no seconady query/constraint)
+                            ZptSecondary['table']:   provides table to use 
+                            ZptSecondary['source']:  Zpt source constraint
+                            ZptSecondary['version']: Zpt version constraint
+                            ZptSecondary['flag']:    Zpt flag constraint
             dbh:       Database connection to be used
             dbSchema:  Schema over which queries will occur.
             verbose:   Integer setting level of verbosity when running.
@@ -365,7 +371,7 @@ def query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose=0):
             zptconstraint=ZptConstraint)
 
     if (verbose > 0):
-        print("# Executing query to obtain red_bkg images corresponding to the red_immasked images")
+        print("# Executing query to obtain ZEROPOINTs corresponding to the red_immasked images")
         if (verbose == 1):
             print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
         if (verbose > 1):
@@ -389,10 +395,83 @@ def query_zeropoint(ImgDict,ZptInfo,dbh,dbSchema,verbose=0):
             if (verbose > 2):
                 print(" No matching record? in query for zeropoint for (ImgName={:s} ".format(ImgName))
 
+#
+#   Secondary zeropoint query
+#
+    if (ZptSecondary is not None):
+        ZptData='z.mag_zero as mag_zero,'
+        ZptSrcConstraint=''
+        if ('source' in ZptSecondary):
+            ZptSrcConstraint="and z.source='%s'" % (ZptSecondary['source'])
+
+        ZptVerConstraint=''
+        if ('version' in ZptSecondary):
+            ZptVerConstraint="and z.version='%s'" % (ZptSecondary['version'])
+
+        ZptFlagConstraint=''
+        if ('flag' in ZptSecondary):
+            ZptFlagConstraint='and z.flag<{:s}'.format(ZptSecondary['flag'])
+        ZptConstraint="""and z.imagename=i.filename and z.mag_zero>-100. %s %s %s""" % (ZptSrcConstraint,ZptVerConstraint,ZptFlagConstraint)
+#
+#       Prepare GTT_FILENAME table with list of possible inputs 
+#       Note this could be re-instated and only query over those images that do not yet have a zeropoint.
+#
+#        ImgList=[]
+#        for ImgName in ImgDict:
+#           ImgList.append([ImgName])
+#        # Make sure the GTT_FILENAME table is empty
+#        curDB=dbh.cursor()
+#        curDB.execute('delete from GTT_FILENAME')
+#        # load img ids into opm_filename_gtt table
+#        print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+#        dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+#        curDB.execute('select count(*) from gtt_filename')
+#        for row in curDB:
+#            print "GTT_FILENAME check found ",row," rows."
+#
+#       Query to obtain zeropoints 
+#
+        query="""SELECT 
+            gtt.filename as filename,
+            {zptdata:s}
+            i.expnum as expnum,
+            i.ccdnum as ccdnum
+        FROM {schema:s}image i, gtt_filename gtt{zpttable:s}
+        WHERE i.filename=gtt.filename
+           {zptconstraint:s}
+            """.format(
+                zptdata=ZptData,
+                schema=dbSchema,
+                zpttable=ZptTable,
+                zptconstraint=ZptConstraint)
+
+        if (verbose > 0):
+            print("# Executing query to obtain SECONDARY ZPTs corresponding to the red_immasked images")
+            if (verbose == 1):
+                print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+            if (verbose > 1):
+                print("# sql = {:s}".format(query))
+        curDB.execute(query)
+        desc = [d[0].lower() for d in curDB.description]
+#
+        for row in curDB:
+            rowd = dict(zip(desc, row))
+            ImgName=rowd['filename']
+            if (ImgName in NewImgDict):
+                print(" Secondary ZPT query has identified a ZPT for and existing record.  Ignoring Seconday ZPT for (ImgName={:s} ".format(ImgName))
+            else:
+                if (ImgName in ImgDict):
+                    NewImgDict[ImgName]=ImgDict[ImgName]
+                    if ('mag_zero' in rowd):
+                        NewImgDict[ImgName]['mag_zero']=rowd['mag_zero']
+#                    NewImgList.append([ImgName])
+                else:
+                    if (verbose > 2):
+                            print(" No matching record? in query for zeropoint for (ImgName={:s} ".format(ImgName))
+
     ImgDict=NewImgDict 
 #    ImgList=NewImgList
     return ImgDict
-
 
 
 ######################################################################################
@@ -436,7 +515,7 @@ def query_blacklist(ImgDict,BlacklistInfo,dbh,dbSchema,verbose=0):
     print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
     dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
 #
-#   Query to obtain zeropoints 
+#   Query to remove blacklisted exposures/images.
 #
     query="""SELECT 
         gtt.filename as filename,
