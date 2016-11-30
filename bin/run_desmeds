@@ -23,7 +23,12 @@ def make_coadd_object_map(args):
     dbh = desdbi.DesDbi(section=args.db_section,retry=True)
     # Format and query with query2rec
     QUERY_MAP = "select OBJECT_NUMBER,ID from COADD_OBJECT where FILENAME='%s' order by object_number" % catname
-    map_data = despyastro.query2rec(QUERY_MAP,dbhandle=dbh)
+    map_data = despyastro.query2rec(QUERY_MAP,dbhandle=dbh,verb=True)
+
+    # Make sure we get an answer, if no entries found query2rec() will return False
+    if not map_data:
+        print "ERROR: Query returned no objects, cannot create coadd_object map"
+        exit(1)
     
     # Write a fits file with the record array
     fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS',clobber=True)
