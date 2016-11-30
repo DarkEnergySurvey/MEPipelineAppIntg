@@ -1302,6 +1302,141 @@ def query_astref_catfinalcut_by_fiat(CatDict,CoaddTile,ProcTag,dbh,dbSchema,Band
 
 
 ######################################################################################
+def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,ArchiveSite,dbh,dbSchema,verbose=0):
+    """ Query code to obtain inputs for MOF/NGMIX (multi-epoch fitting and WL shape)
+        Use an existing DB connection to execute a query for MEDs and associated 
+        single-epoch PSFex models.
+
+        Inputs:
+            QueryType: Either 'meds' or 'psfmodel' (
+            CoaddTile: Name of COADD tile for search
+            ProcTag:   Processing Tag used to constrain pool of input images
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
+            ArchiveSite: Constraint that data/files exist within a specific archive
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            MedDict:   Dictionary of MEDs files from previous COADD pipeline run
+            PSFDict:   Dictionary of PSF models from previous single-epoch pipeline run
+    """
+#
+#   Pre-assemble constraint based on BandList (currently not used)
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and i.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
+#
+#   Query to get the MEDS files from a specific tile (also needed as a pre-query when getting PSF Models).
+#
+    query="""SELECT fai.filename as filename,
+            fai.compression as compression,
+            m.band as band,
+            m.pfw_attempt_id as pfw_attempt_id
+        FROM {schema:s}proctag t, {schema:s}miscfile m, {schema:s}file_archive_info fai
+        WHERE t.tag='{ctag:s}'
+            and t.pfw_attempt_id=m.pfw_attempt_id
+            and m.tilename='{tile:s}' 
+            and m.filetype='coadd_meds'
+            and fai.filename=m.filename
+            and fai.archive_name='{archive:s}'""".format(
+        schema=dbSchema,
+        ctag=CoaddProcTag,
+        tile=CoaddTile,
+        archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    MedDict={}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        if (rowd['band'] in BandList):
+            ImgName=rowd['filename']
+            MedDict[ImgName]=rowd
+        else:
+            if (verbose > 1):
+                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+
+    if (QueryType == 'psfmodel'):
+#
+#       Get the PFW_ATTEMPT_ID for this tile (from the dictionary
+#
+        AttIDList=[]
+        for MedImg in MedDict: 
+            AttIDList.append(MedDict[MedImg]['pfw_attempt_id'])
+        uAttID=sorted(list(set(AttIDList)))
+        if (len(uAttID)>1):
+            print("WARNING: more than one attempt ID found when searching for MEDs files.")
+            print("Using first ID")
+        if (len(uAttID)<1):
+            print("ERROR: no MEDs files identified for tile='{:s}'".format(CoaddTile))
+            print("Aborting")
+            exit(1)
+
+#
+#       Query for the PSF Model Files from the Single-Epoch runs.
+# 
+        query="""SELECT fai.filename as filename,
+                fai.compression as compression,
+                m.expnum as expnum,
+                m.ccdnum as ccdnum,
+                m.band as band
+            FROM {schema:s}proctag ts, {schema:s}image i, {schema:s}miscfile m, {schema:s}file_archive_info fai
+            WHERE i.pfw_attempt_id={AttID:d}
+                and i.filetype='coadd_nwgint'
+                and i.ccdnum=m.ccdnum
+                and i.expnum=m.expnum
+                and m.filetype='psfex_model'
+                and m.pfw_attempt_id=ts.pfw_attempt_id
+                and ts.tag='{stag}'
+                and m.filename=fai.filename
+                and fai.archive_name='{archive:s}'""".format(
+            schema=dbSchema,
+            AttID=uAttID[0],
+            stag=SE_ProcTag,
+            archive=ArchiveSite)
+
+        if (verbose > 0):
+            print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
+            if (verbose == 1):
+                print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+            if (verbose > 1):
+                print("# sql = {:s}".format(query))
+        curDB=dbh.cursor()
+        curDB.execute(query)
+        desc = [d[0].lower() for d in curDB.description]
+
+        PSFDict={}
+        for row in curDB:
+            rowd = dict(zip(desc, row))
+            if (rowd['band'] in BandList):
+                ImgName=rowd['filename']
+                PSFDict[ImgName]=rowd
+            else:
+                if (verbose > 1):
+                    print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+
+#
+#   Everything is now done... return the appropriate Dictionary
+#
+    if (QueryType == 'meds'):
+        ReturnDict=MedDict
+    if (QueryType == 'psfmodel'):
+        ReturnDict=PSFDict
+
+    return ReturnDict
+
+
+######################################################################################
 def ImgDict_to_LLD(ImgDict,filetypes,mdatatypes,verbose=0):
     """ Function to convert CatDict into appropriate list of list of dicts suitable for WCL"""
 
