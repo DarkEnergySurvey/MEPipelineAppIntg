@@ -1332,6 +1332,7 @@ def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,Ar
 #
     query="""SELECT fai.filename as filename,
             fai.compression as compression,
+            fai.path as path,
             m.band as band,
             m.pfw_attempt_id as pfw_attempt_id
         FROM {schema:s}proctag t, {schema:s}miscfile m, {schema:s}file_archive_info fai
@@ -1387,6 +1388,7 @@ def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,Ar
 # 
         query="""SELECT fai.filename as filename,
                 fai.compression as compression,
+                fai.path as path,
                 m.expnum as expnum,
                 m.ccdnum as ccdnum,
                 m.band as band
