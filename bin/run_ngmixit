@@ -51,7 +51,7 @@ if __name__ == "__main__":
     nfof = find_number_fof(fof_file,ext=1)
     j1,j2 = getrange(args.wrange,nfof,args.nranges)
     print "# Found %s FoF" % nfof
-    print "# will run chunk %s, between %s-%s FoF" % (args.wrange,j1,j2)
+    print "# will run chunk %s, between %s-%s jobs" % (args.wrange,j1,j2)
 
     # Add the fof-range to the command line
     unknownargs.insert(0,"--fof-range %s,%s" % (j1,j2))
