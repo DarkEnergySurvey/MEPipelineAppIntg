@@ -28,7 +28,7 @@ def getrange(n,nfof,nranges):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Define input for ngmixit and run")
+    parser = argparse.ArgumentParser(description="Define the inputs for ngmixit and run")
     parser.add_argument("--nranges", type=int, action="store",default=None, required=True,
                         help="Number of ranges needed (i.e. number of CPUs)")
     parser.add_argument("--wrange", type=int, action="store",default=None, required=True,
@@ -43,35 +43,46 @@ if __name__ == "__main__":
     # Parse the known and extra args (as a list)
     args, unknownargs = parser.parse_known_args()
 
+    # Extract the fof-file, use this method because of the non-standard '--fof-file' argument
     fof_file_idx = unknownargs.index('--fof-file')
     fof_file = unknownargs[fof_file_idx+1]
 
-    # Get the number of FoF
+    # Get the number of FoF and job bracketing
     nfof = find_number_fof(fof_file,ext=1)
-    print "Found %s FoF" % nfof
-    # Get the job bracketing
     j1,j2 = getrange(args.wrange,nfof,args.nranges)
+    print "# Found %s FoF" % nfof
+    print "# will run chunk %s, between %s-%s FoF" % (args.wrange,j1,j2)
 
     # Add the fof-range to the command line
     unknownargs.insert(0,"--fof-range %s,%s" % (j1,j2))
 
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
-    
+
+    # We build the command-list from the known (additional) arguments
     cmdlist = [EXE]
-    print "# Will run:"
-    print "# %s " % EXE
     for key in dict_args:
         if key in ignore_options: continue
         print "# \t--%-10s\t%s" % (key,vars(args)[key])
         cmdlist.append("--%s" % key)
         cmdlist.append(dict_args[key])
-    print "# \t%s" % " ".join(unknownargs)
+    # plus the extra args which are directly passed to ngmixit
     for uarg in unknownargs:
         cmdlist.append(uarg)
 
+    # The full command in one line
     cmd = ' '.join(map(str, cmdlist))
-    #print cmdlist
-    print "#"
-    print cmd
+    print "# Will execute:"
+    print "# \t%s" % cmd
+
+    # Run the code now
+    t0 = time.time()
+    status = 0
+    if not args.dryrun:
+        sys.stdout.flush()
+        status = subprocess.call(cmd,shell=True)
+    # Done
+    print "# MEDs creation time: %s" % elapsed_time(t0)
+    sys.exit(status)
+
 
