@@ -26,7 +26,7 @@ def make_coadd_object_map(args):
     map_data = despyastro.query2rec(QUERY_MAP,dbhandle=dbh,verb=True)
 
     # Make sure we get an answer, if no entries found query2rec() will return False
-    if not map_data:
+    if map_data is False:
         print "ERROR: Query returned no objects, cannot create coadd_object map"
         exit(1)
     
