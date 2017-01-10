@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--dryrun", action="store_true",default=False,
                         help="Print and exit?")
 
-    ignore_options = ['nranges','wrange','dryrun','tilename']
+    ignore_options = ['nranges','wrange','dryrun','tilename','seed_shift']
     # Parse the known and extra args (as a list)
     args, unknownargs = parser.parse_known_args()
 
