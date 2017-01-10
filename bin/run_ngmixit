@@ -6,40 +6,28 @@ import sys
 import time
 from despymisc.miscutils import elapsed_time
 import subprocess
-import math
-import fitsio
+from mepipelineappintg import ngmixit_tools 
 
 EXE = 'ngmixit'
-
-def find_number_fof(filename,ext):
-    header = fitsio.read_header(filename,ext=ext)
-    return header['NAXIS2']
-
-def getrange(n,nfof,nranges):
-
-    chunck_size = math.ceil( float(nfof)/float(nranges) )
-    chunck_size = int(chunck_size)
-    j1 = (n-1)*chunck_size
-    j2 = n*chunck_size - 1
-    # Make sure we won't assing more jobs
-    if j2 > nfof-1:
-        j2 = nfof-1
-    return j1,j2
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Define the inputs for ngmixit and run")
+
+    parser.add_argument("--tilename", type=str, action="store",default=None, required=True,
+                        help="Name of tilename to process")
     parser.add_argument("--nranges", type=int, action="store",default=None, required=True,
                         help="Number of ranges needed (i.e. number of CPUs)")
     parser.add_argument("--wrange", type=int, action="store",default=None, required=True,
                         help="Which range to use, [0, NRANGES-1]")
     #parser.add_argument("--fof-file", type=str,action="store",default=None, required=True,
     #                    help="File with FoF definitions.")
+    parser.add_argument("--seed_shift", type=str, action="store",default=None, required=False,
+                        help="Optional seed shift string of integers")
     parser.add_argument("--dryrun", action="store_true",default=False,
                         help="Print and exit?")
 
-
-    ignore_options = ['nranges','wrange','dryrun']
+    ignore_options = ['nranges','wrange','dryrun','tilename']
     # Parse the known and extra args (as a list)
     args, unknownargs = parser.parse_known_args()
 
@@ -48,13 +36,17 @@ if __name__ == "__main__":
     fof_file = unknownargs[fof_file_idx+1]
 
     # Get the number of FoF and job bracketing
-    nfof = find_number_fof(fof_file,ext=1)
-    j1,j2 = getrange(args.wrange,nfof,args.nranges)
+    nfof = ngmixit_tools.find_number_fof(fof_file,ext=1)
+    j1,j2 = ngmixit_tools.getrange(args.wrange,nfof,args.nranges)
     print "# Found %s FoF" % nfof
     print "# will run chunk %s, between %s-%s jobs" % (args.wrange,j1,j2)
 
     # Add the fof-range to the command line
     unknownargs.insert(0,"--fof-range %s,%s" % (j1,j2))
+
+    # Get the seed based on tilename and chunck/wrange and add it to the commandline unknownargs
+    seed = ngmixit_tools.chunkseed(args.tilename,args.wrange, shift='')
+    unknownargs.insert(1,"--seed %s" % seed)
 
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
