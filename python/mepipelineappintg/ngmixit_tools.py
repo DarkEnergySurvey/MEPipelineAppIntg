@@ -23,8 +23,10 @@ def chunkseed(tilename,chunk, shift=''):
     return newseed
 
 def find_number_fof(filename,ext):
-    header = fitsio.read_header(filename,ext=ext)
-    return header['NAXIS2']
+
+    fofs = fitsio.read(filename)
+    num = numpy.unique(fofs['fofid']).size
+    return num
 
 def getrange(n,nfof,nranges):
 
