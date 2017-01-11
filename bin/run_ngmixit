@@ -20,16 +20,15 @@ if __name__ == "__main__":
                         help="Number of ranges needed (i.e. number of CPUs)")
     parser.add_argument("--wrange", type=int, action="store",default=None, required=True,
                         help="Which range to use, [0, NRANGES-1]")
-    #parser.add_argument("--fof-file", type=str,action="store",default=None, required=True,
-    #                    help="File with FoF definitions.")
     parser.add_argument("--seed_shift", type=str, action="store",default=None, required=False,
                         help="Optional seed shift string of integers")
     parser.add_argument("--dryrun", action="store_true",default=False,
-                        help="Print and exit?")
+                        help="Just print the command to be executed and exit?")
 
     ignore_options = ['nranges','wrange','dryrun','tilename','seed_shift']
     # Parse the known and extra args (as a list)
     args, unknownargs = parser.parse_known_args()
+
 
     # Extract the fof-file, use this method because of the non-standard '--fof-file' argument
     fof_file_idx = unknownargs.index('--fof-file')
@@ -47,6 +46,12 @@ if __name__ == "__main__":
     # Get the seed based on tilename and chunck/wrange and add it to the commandline unknownargs
     seed = ngmixit_tools.chunkseed(args.tilename,args.wrange, shift='')
     unknownargs.insert(1,"--seed %s" % seed)
+
+    # We need to avoid passing --fof-file if --mof-file is present.
+    if '--mof-file' in unknownargs and '--fof-file' in unknownargs:
+        print '# "--mof-file" option is present: we will remove "--fof-file" from arguments'
+        unknownargs.remove(fof_file)
+        unknownargs.remove('--fof-file')
 
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
