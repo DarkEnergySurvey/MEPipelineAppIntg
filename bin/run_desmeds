@@ -25,6 +25,8 @@ def make_coadd_object_map(args):
     QUERY_MAP = "select OBJECT_NUMBER,ID from COADD_OBJECT where FILENAME='%s' order by object_number" % catname
     map_data = despyastro.query2rec(QUERY_MAP,dbhandle=dbh,verb=True)
 
+    print map_data
+
     # Make sure we get an answer, if no entries found query2rec() will return False
     if map_data is False:
         print "ERROR: Query returned no objects, cannot create coadd_object map"

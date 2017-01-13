@@ -8,47 +8,22 @@ from despymisc.miscutils import elapsed_time
 import subprocess
 from mepipelineappintg import ngmixit_tools 
 
-EXE = 'ngmixit'
+EXE = 'ngmixer-meds-make-nbrs-data'
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Define the inputs for ngmixit and run")
 
-    parser.add_argument("--tilename", type=str, action="store",default=None, required=True,
-                        help="Name of tilename to process")
     parser.add_argument("--meds_list", type=str, action="store",default=None, required=True,
                         help="Name of file containing filenames and bands for the input meds")
-    parser.add_argument("--bands", type=str, action="store",default=None, required=True, nargs='+',
+    parser.add_argument("--bands", type=str, action="store",default=['g',], required=False, nargs='+',
                         help="Ordered list of bands to use")
-    parser.add_argument("--nranges", type=int, action="store",default=None, required=True,
-                        help="Number of ranges needed (i.e. number of CPUs)")
-    parser.add_argument("--wrange", type=int, action="store",default=None, required=True,
-                        help="Which range to use, [0, NRANGES-1]")
-    parser.add_argument("--seed_shift", type=str, action="store",default=None, required=False,
-                        help="Optional seed shift string of integers")
     parser.add_argument("--dryrun", action="store_true",default=False,
                         help="Just print the command to be executed and exit?")
 
-    ignore_options = ['nranges','wrange','dryrun','tilename','seed_shift','bands','meds_list']
+    ignore_options = ['dryrun','bands','meds_list']
     # Parse the known and extra args (as a list)
     args, unknownargs = parser.parse_known_args()
-
-    # Extract the fof-file, use this method because of the non-standard '--fof-file' argument
-    fof_file_idx = unknownargs.index('--fof-file')
-    fof_file = unknownargs[fof_file_idx+1]
-
-    # Get the number of FoF and job bracketing
-    nfof = ngmixit_tools.find_number_fof(fof_file,ext=1)
-    j1,j2 = ngmixit_tools.getrange(args.wrange,nfof,args.nranges)
-    print "# Found %s FoF" % nfof
-    print "# will run chunk %s, between %s-%s jobs" % (args.wrange,j1,j2)
-
-    # Add the fof-range to the command line
-    unknownargs.insert(0,"--fof-range %s,%s" % (j1,j2))
-
-    # Get the seed based on tilename and chunck/wrange and add it to the commandline unknownargs
-    seed = ngmixit_tools.chunkseed(args.tilename,args.wrange, shift='')
-    unknownargs.insert(1,"--seed %s" % seed)
 
     # Fix the bands comma separated into a real list
     args.bands = ngmixit_tools.parse_comma_separated_list(args.bands)
@@ -59,12 +34,6 @@ if __name__ == "__main__":
     # And now we append to unknownargs the meds files
     for band in args.bands:
         unknownargs.append(meds_files[band])
-
-    # We need to avoid passing --fof-file if --mof-file is present.
-    if '--mof-file' in unknownargs and '--fof-file' in unknownargs:
-        print '# "--mof-file" option is present, we will remove "--fof-file" from arguments'
-        unknownargs.remove(fof_file)
-        unknownargs.remove('--fof-file')
 
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
