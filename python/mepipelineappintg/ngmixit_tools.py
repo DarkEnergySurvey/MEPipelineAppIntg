@@ -39,6 +39,22 @@ def getrange(n,nfof,nranges):
         j2 = nfof-1
     return j1,j2
 
+def read_meds_list(filename):
+    """Reads and return a dictionary with meds filenames by band"""
+    fnames = {}
+    for line in open(filename).readlines():
+        if line[0] == "#":
+            continue
+        band = line.split()[1]
+        fnames[band] = line.split()[0]
+    return fnames
+
+
+def parse_comma_separated_list(inputlist):
+    if inputlist[0].find(',') >= 0:
+        return inputlist[0].split(',')
+    else:
+        return inputlist
 
 if __name__ == "__main__":
 
