@@ -1,5 +1,5 @@
 setupRequired(despydb 2.0.2+0)
-setupRequired(IntegrationUtils 2.0.7+0)
-setupRequired(despyastro 0.3.8+1)
+setupRequired(IntegrationUtils 2.0.9+0)
+setupRequired(despyastro 0.3.9+1)
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
