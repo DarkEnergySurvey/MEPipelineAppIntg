@@ -33,14 +33,33 @@ if __name__ == "__main__":
     # Parse the known and extra args (as a list)
     args, unknownargs = parser.parse_known_args()
 
-    # Extract the fof-file, use this method because of the non-standard '--fof-file' argument
-    fof_file_idx = unknownargs.index('--fof-file')
-    fof_file = unknownargs[fof_file_idx+1]
+    # Fix the bands comma separated into a real list
+    args.bands = ngmixit_tools.parse_comma_separated_list(args.bands)
 
-    # Get the number of FoF and job bracketing
-    nfof = ngmixit_tools.find_number_fof(fof_file,ext=1)
-    j1,j2 = ngmixit_tools.getrange(args.wrange,nfof,args.nranges)
-    print "# Found %s FoF" % nfof
+    # Get the list of med files
+    meds_files = ngmixit_tools.read_meds_list(args.meds_list)
+        
+    # We need to avoid passing --fof-file if --mof-file is present, it's one or the other
+    if '--mof-file' in unknownargs and '--fof-file' in unknownargs:
+        print '# "--mof-file" option is present, we will remove "--fof-file" from arguments'
+        fof_file_idx = unknownargs.index('--fof-file')
+        fof_file = unknownargs[fof_file_idx+1]
+        unknownargs.remove(fof_file)
+        unknownargs.remove('--fof-file')
+
+    # Extract the fof-file, use this method because of the non-standard '--fof-file' argument
+    if '--fof-file' in unknownargs:
+        fof_file_idx = unknownargs.index('--fof-file')
+        fof_file = unknownargs[fof_file_idx+1]
+        # Get the number of objects to fit from fof file
+        nfit = ngmixit_tools.find_number_fof(fof_file,ext=1)
+    else:
+        # We get the nfit from the first band file mof
+        nfit = ngmixit_tools.find_number_meds(meds_files[args.bands[0]])
+
+    # Get the job bracketing
+    j1,j2 = ngmixit_tools.getrange(args.wrange,nfit,args.nranges)
+    print "# Found %s nfit" % nfit
     print "# will run chunk %s, between %s-%s jobs" % (args.wrange,j1,j2)
 
     # Add the fof-range to the command line
@@ -50,21 +69,11 @@ if __name__ == "__main__":
     seed = ngmixit_tools.chunkseed(args.tilename,args.wrange, shift='')
     unknownargs.insert(1,"--seed %s" % seed)
 
-    # Fix the bands comma separated into a real list
-    args.bands = ngmixit_tools.parse_comma_separated_list(args.bands)
-
-    # Get the list of med files
-    meds_files = ngmixit_tools.read_meds_list(args.meds_list)
 
     # And now we append to unknownargs the meds files
     for band in args.bands:
         unknownargs.append(meds_files[band])
 
-    # We need to avoid passing --fof-file if --mof-file is present.
-    if '--mof-file' in unknownargs and '--fof-file' in unknownargs:
-        print '# "--mof-file" option is present, we will remove "--fof-file" from arguments'
-        unknownargs.remove(fof_file)
-        unknownargs.remove('--fof-file')
 
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
@@ -92,7 +101,7 @@ if __name__ == "__main__":
         sys.stdout.flush()
         status = subprocess.call(cmd,shell=True)
     # Done
-    print "# MEDs creation time: %s" % elapsed_time(t0)
+    print "# NGMIXIT creation time: %s" % elapsed_time(t0)
     sys.exit(status)
 
 

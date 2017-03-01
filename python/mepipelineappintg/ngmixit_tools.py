@@ -28,6 +28,12 @@ def find_number_fof(filename,ext):
     num = numpy.unique(fofs['fofid']).size
     return num
 
+def find_number_meds(filename):
+
+    meds = fitsio.FITS(filename)
+    num = meds['object_data'].get_nrows()
+    return int(num)
+
 def getrange(n,nfof,nranges):
 
     chunck_size = math.ceil( float(nfof)/float(nranges) )

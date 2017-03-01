@@ -61,7 +61,7 @@ if __name__ == "__main__":
         sys.stdout.flush()
         status = subprocess.call(cmd,shell=True)
     # Done
-    print "# NGMIXER chunk creation time: %s" % elapsed_time(t0)
+    print "# Elapsed time: %s" % elapsed_time(t0)
     sys.exit(status)
 
 
