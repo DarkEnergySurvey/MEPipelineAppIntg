@@ -23,7 +23,8 @@ if __name__ == "__main__":
     from despymisc.miscutils import fwsplit 
     import intgutils.queryutils as queryutils
     import mepipelineappintg.coadd_query as me
-    
+    import mepipelineappintg.mepochmisc as mepochmisc
+        
     svnid="$Id$"
 
     parser = argparse.ArgumentParser(description='Query code to obtain image inputs for COADD/multiepoch pipelines.')
@@ -46,7 +47,9 @@ if __name__ == "__main__":
     parser.add_argument('--z2flag',     action='store', type=str, default=None, help='FLAG constraint on secondary ZPT queries. (Default=None)')
     parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
     parser.add_argument('--no_MEDs',  action='store_true', default=False, help='Suppress inclusion of BKGD and SEGMAP products')
-    parser.add_argument('--imglist',  action='store', type=str, default=None, help='Optional output of a txt-file listing showing expnum, ccdnum, band, zeropoint') 
+    parser.add_argument('--imglist',  action='store', type=str, default=None, help='Optional output of a txt-file listing showing expnum, ccdnum, band, zeropoint')
+    parser.add_argument('--ima_list',     action='store', default=None, help='Filename with list of returned IMG list')
+    parser.add_argument('--bkg_list',     action='store', default=None, help='Filename with list of returned BKG list')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 4)')
@@ -272,10 +275,14 @@ if __name__ == "__main__":
     print " Catalog query run"
     print "    Execution Time: %.2f" % (time.time()-t0)
     print "    Cat Dict size: ",len(CatDict)
+
+
+
+
 #
 #   Close DB connection?
 #
-    dbh.close()
+#    dbh.close()
 #
 #   If a high level of verbosity is present print the query results.
 #
@@ -387,5 +394,13 @@ if __name__ == "__main__":
         exit(1)
 
 #   Close up shop. 
+
+
+    # Optional print a list of the location of the inputs
+    if args.ima_list:
+        mepochmisc.write_textlist(dbh,ImgDict,args.ima_list, fields=['fullname','band','mag_zero'],verb=args.verbose)
+
+    if args.bkg_list:
+        mepochmisc.write_textlist(dbh,BkgDict,args.bkg_list, fields=['fullname','band'],verb=args.verbose)
 
     exit()

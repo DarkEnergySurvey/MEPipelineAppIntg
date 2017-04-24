@@ -145,6 +145,7 @@ def query_coadd_img_by_edges(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,dbh,
 #            bandconstraint=BandConstraint,
     query="""SELECT 
         fai.filename as filename,
+        fai.path as path,
         fai.compression as compression,
         i.band as band,
         i.expnum as expnum,
@@ -241,6 +242,7 @@ def query_coadd_img_by_fiat(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,FiatT
     
     query="""SELECT 
         fai.filename as filename,
+        fai.path as path,            
         fai.compression as compression,
         i.band as band,
         i.expnum as expnum,
@@ -593,6 +595,7 @@ def query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
     query="""SELECT 
         i.filename as redfile,
         fai.filename as filename,
+        fai.path as path,            
         fai.compression as compression,
         k.band as band,
         k.expnum as expnum,
@@ -673,6 +676,7 @@ def query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
     query="""SELECT 
         i.filename as redfile,
         fai.filename as filename,
+        fai.path as path,
         fai.compression as compression,
         m.band as band,
         m.expnum as expnum,
@@ -743,6 +747,7 @@ def query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
     query="""SELECT 
         i.filename as redfile,
         fai.filename as filename,
+        fai.path as path,  
         fai.compression as compression,
         c.band as band,
         c.expnum as expnum,
@@ -1331,8 +1336,8 @@ def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,Ar
 #   Query to get the MEDS files from a specific tile (also needed as a pre-query when getting PSF Models).
 #
     query="""SELECT fai.filename as filename,
-            fai.compression as compression,
             fai.path as path,
+            fai.compression as compression,
             m.band as band,
             m.pfw_attempt_id as pfw_attempt_id
         FROM {schema:s}proctag t, {schema:s}miscfile m, {schema:s}file_archive_info fai
@@ -1387,8 +1392,8 @@ def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,Ar
 #       Query for the PSF Model Files from the Single-Epoch runs.
 # 
         query="""SELECT fai.filename as filename,
-                fai.compression as compression,
                 fai.path as path,
+                fai.compression as compression,
                 m.expnum as expnum,
                 m.ccdnum as ccdnum,
                 m.band as band
