@@ -1,8 +1,7 @@
 #! /usr/bin/env python
-# $Id: query_coadd_img_for_nullwgt.py 44569 2016-11-08 07:21:46Z rgruendl $
-# $Rev:: 44569                            $:  # Revision of last commit.
+# $Id: query_coadd_for_mof.py 47811 2018-10-12 20:39:19Z rgruendl $
+# $Rev:: 47811                            $:  # Revision of last commit.
 # $LastChangedBy:: rgruendl               $:  # Author of last commit.
-# $LastCha
 """
 Query code to obtain images inputs for the COADD/multiepoch pipeline.  
 """
@@ -25,9 +24,9 @@ if __name__ == "__main__":
     import intgutils.queryutils as queryutils
     import mepipelineappintg.coadd_query as me
     import mepipelineappintg.mepochmisc as mepochmisc
-    import json
+#    import json
 
-    svnid="$Id: query_coadd_img_for_nullwgt.py 44569 2016-11-08 07:21:46Z rgruendl $"
+    svnid="$Id: query_coadd_for_mof.py 47811 2018-10-12 20:39:19Z rgruendl $"
 
     parser = argparse.ArgumentParser(description='Query code to obtain image inputs for COADD/multiepoch pipelines.')
     parser.add_argument('--me_proctag',  action='store', type=str, required=True, help='Multi-Epoch Processing Tag from which to draw MEDs inputs')
@@ -40,6 +39,7 @@ if __name__ == "__main__":
     parser.add_argument('--psfmodel', action='store_true', default=False, help='Flag for code to return PSF models associated with MEDs files')
     parser.add_argument('--meds_list',     action='store', default=None, help='Filename with list of returned MEDs files')
     parser.add_argument('--psfmodel_list', action='store', default=None, help='Filename with list returned PSF models associated with MEDs files')
+    parser.add_argument('--coadd_only',    action='store_true', default=False, help='PSF model lists are for MEDs files comprised of COADD postage stamps only')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 4)')
@@ -84,15 +84,15 @@ if __name__ == "__main__":
 
     t0=time.time()
     if args.meds:
-        MED_Dict=me.query_meds_psfmodels('meds',args.tile,args.me_proctag,args.se_proctag,BandList,ArchiveSite,dbh,dbSchema,verbose)
+        MED_Dict=me.query_meds_psfmodels('meds',args.tile,args.me_proctag,args.se_proctag,args.coadd_only,BandList,ArchiveSite,dbh,dbSchema,verbose)
         print("    MED Dict size: {:d}".format(len(MED_Dict)))
     if args.psfmodel:
-        PSF_Dict=me.query_meds_psfmodels('psfmodel',args.tile,args.me_proctag,args.se_proctag,BandList,ArchiveSite,dbh,dbSchema,verbose)
+        PSF_Dict=me.query_meds_psfmodels('psfmodel',args.tile,args.me_proctag,args.se_proctag,args.coadd_only,BandList,ArchiveSite,dbh,dbSchema,verbose)
         print("    PSF Model Dict size: {:d}".format(len(PSF_Dict)))
     print("    Execution Time: {:.2f}".format(time.time()-t0))
 
     # Write simple lists of returned files
-    if args.psfmodel_list and args.psfmodel_list:
+    if args.psfmodel_list and args.psfmodel:
         mepochmisc.write_textlist(dbh,PSF_Dict,args.psfmodel_list, fields=['ngmixid','fullname'],verb=args.verbose)
     if args.meds_list and args.meds:
         mepochmisc.write_textlist(dbh,MED_Dict,args.meds_list, fields=['fullname'],verb=args.verbose)

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# $Id$
-# $Rev::                                  $:  # Revision of last commit.
-# $LastChangedBy::                        $:  # Author of last commit.
+# $Id: query_coadd_astrorefine.py 43836 2016-08-25 20:15:59Z rgruendl $
+# $Rev:: 43836                            $:  # Revision of last commit.
+# $LastChangedBy:: rgruendl               $:  # Author of last commit.
 # $LastCha
 """
 Query code to obtain catalogs and headfiles for input to the astrometric 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     import intgutils.queryutils as queryutils
     import mepipelineappintg.coadd_query as me
     
-    svnid="$Id$"
+    svnid="$Id: query_coadd_astrorefine.py 43836 2016-08-25 20:15:59Z rgruendl $"
 
     parser = argparse.ArgumentParser(description='Query code to obtain inputs for the astrometric refinement step in COADD/multiepoch pipelines.')
     parser.add_argument('--cattype',       action='store', type=str, required=True, help='Type of catalog query (default=CAT_FINALCUT) or alternatively SCAMPCAT scampcat/head')

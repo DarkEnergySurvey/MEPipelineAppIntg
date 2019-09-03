@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-# $Id$
-# $Rev::                                  $:  # Revision of last commit.
-# $LastChangedBy::                        $:  # Author of last commit.
-# $LastChangedDate::                      $:  # Date of last commit.
+# $Id: query_expcat_for_tile.py 34655 2015-03-06 19:40:56Z mgower $
+# $Rev:: 34655                            $:  # Revision of last commit.
+# $LastChangedBy:: mgower                 $:  # Author of last commit.
+# $LastChangedDate:: 2015-03-06 13:40:56 #$:  # Date of last commit.
 
 """ Specialized query to find catalogs """
 
