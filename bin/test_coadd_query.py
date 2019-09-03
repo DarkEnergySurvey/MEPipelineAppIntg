@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# $Id$
-# $Rev::                                  $:  # Revision of last commit.
-# $LastChangedBy::                        $:  # Author of last commit.
+# $Id: test_coadd_query.py 42694 2016-06-13 21:56:09Z rgruendl $
+# $Rev:: 42694                            $:  # Revision of last commit.
+# $LastChangedBy:: rgruendl               $:  # Author of last commit.
 # $LastCha
 """
 A small set of tests that exercise a set of queries that nominally provide 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     from despymisc.miscutils import fwsplit
     import mepipelineappintg.coadd_query as me
     
-    svnid="$Id$"
+    svnid="$Id: test_coadd_query.py 42694 2016-06-13 21:56:09Z rgruendl $"
 
     parser = argparse.ArgumentParser(description='Small scale tests of COADD pipeline queries')
     parser.add_argument('-p', '--proctag',  action='store', type=str, required=True, help='Processing Tag from which to draw COADD inputs')

@@ -1,10 +1,12 @@
 #! /usr/bin/env python
-# $Id: query_coadd_img_for_nullwgt.py 48356 2019-03-07 16:26:23Z rgruendl $
-# $Rev:: 48356                            $:  # Revision of last commit.
+# $Id: query_coadd_meds_standalone.py 46438 2018-01-04 20:38:17Z rgruendl $
+# $Rev:: 46438                            $:  # Revision of last commit.
 # $LastChangedBy:: rgruendl               $:  # Author of last commit.
 # $LastCha
 """
-Query code to obtain images inputs for the COADD/multiepoch pipeline.  
+Query code to obtain inputs for standalone MEDS generation.  
+Operates on the assumption that a previous execution of the multiepoch/COADD pipeline
+has already executed.
 """
 
 verbose=0
@@ -24,41 +26,37 @@ if __name__ == "__main__":
     import intgutils.queryutils as queryutils
     import mepipelineappintg.coadd_query as me
     import mepipelineappintg.mepochmisc as mepochmisc
-        
-    svnid="$Id: query_coadd_img_for_nullwgt.py 48356 2019-03-07 16:26:23Z rgruendl $"
+       
+    svnid="$Id: query_coadd_meds_standalone.py 46438 2018-01-04 20:38:17Z rgruendl $"
 
-    parser = argparse.ArgumentParser(description='Query code to obtain image inputs for COADD/multiepoch pipelines.')
-    parser.add_argument('-p', '--proctag',  action='store', type=str, required=True, help='Processing Tag from which to draw COADD inputs')
+    parser = argparse.ArgumentParser(description='Query code to obtain inputs for standalone MEDS generation.')
+
+    parser.add_argument('--me_proctag',  action='store', type=str, required=True, help='Multi-Epoch Processing Tag from which to draw MEDs inputs')
+#    parser.add_argument('--se_proctag',  action='store', type=str, required=False, help='Single-Epoch Processing Tag from which to draw PSF Model inputs')
     parser.add_argument('-t', '--tile',     action='store', type=str, required=True, help='COADD tile name for which to asssemble inputs')
     parser.add_argument('-o', '--outfile',  action='store', type=str, required=True, help='Output list to be returned for the framework')
     parser.add_argument('--zeropoint',  action='store', type=str, default='ZEROPOINT', help='ZEROPOINT table to use in queries. (Default=ZEROPOINT, "NONE" results in all ZP fixed at magbase)')
     parser.add_argument('--zsource',    action='store', type=str, default=None, help='SOURCE constraint on ZEROPOINT table to use in queries. (Default=None)')
     parser.add_argument('--zversion',   action='store', type=str, default=None, help='VERSION constraint on ZEROPOINT table to use in queries. (Default=None)')
     parser.add_argument('--zflag',      action='store', type=str, default=None, help='FLAG constraint on ZEROPOINT table to use in queries. (Default=None)')
-    parser.add_argument('--blacklist',  action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
+#    parser.add_argument('--blacklist',  action='store', type=str, default='BLACKLIST', help='BLACKLIST table to use in queries. (Default=BLACKLIST, "NONE", results in no blacklist constraint')
     parser.add_argument('--bandlist',   action='store', type=str, default='g,r,i,z,Y', help='Comma separated list of bands to be COADDed (Default="g,r,i,z,Y").')
     parser.add_argument('--detbands',   action='store', type=str, default='r,i,z', help='Comma separated list of bands that must have at least one image present (Default="r,i,z").')
-    parser.add_argument('--fiat_table',  action='store', type=str, default='Y3A1_IMAGE_TO_TILE', help='Optional table that contains a direct correspondence between image (FILENAME) and tile (TILENAME). (Default=Y3A1_IMAGE_TO_TILE)')
-    parser.add_argument('--brute_force', action='store_true', default=False, help='Redirects query to obtain images by making a brute force comparison between IMAGE table and COADDTILE_GEOM (Default=False)')
     parser.add_argument('--magbase',  action='store', type=float, default=30.0, help='Fiducial/reference magnitude for COADD (default=30.0)')
     parser.add_argument('--zpt2',     action='store', type=str, default=None, help='ZEROPOINT table to use secondary ZPT queries. (Default=None)')
     parser.add_argument('--z2source',   action='store', type=str, default=None, help='SOURCE constraint on secondary ZPT queries. (Default=None)')
     parser.add_argument('--z2version',  action='store', type=str, default=None, help='VERSION constraint on secondary ZPT queries. (Default=None)')
     parser.add_argument('--z2flag',     action='store', type=str, default=None, help='FLAG constraint on secondary ZPT queries. (Default=None)')
     parser.add_argument('--archive',  action='store', type=str, default='desar2home', help='Archive site where data are being drawn from')
-    parser.add_argument('--no_MEDs',  action='store_true', default=False, help='Suppress inclusion of BKGD, SEGMAP, PSF model  products')
     parser.add_argument('--imglist',  action='store', type=str, default=None, help='Optional output of a txt-file listing showing expnum, ccdnum, band, zeropoint')
-    parser.add_argument('--ima_list', action='store', default=None, help='Filename for optional list of returned RED_IMMASK images')
-    parser.add_argument('--seg_list', action='store', default=None, help='Filename for optional list of returned SEGMAP images')
-    parser.add_argument('--bkg_list', action='store', default=None, help='Filename for optional list of returned BKG images')
-    parser.add_argument('--psf_list', action='store', default=None, help='Filename for optional list of returned PSF models')
+    parser.add_argument('--ima_list',     action='store', default=None, help='Filename with list of returned IMG list')
+    parser.add_argument('--bkg_list',     action='store', default=None, help='Filename with list of returned BKG list')
     parser.add_argument('-s', '--section', action='store', type=str, default=None,   help='section of .desservices file with connection info')
     parser.add_argument('-S', '--Schema',  action='store', type=str, default=None,   help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0, help='Verbosity (defualt:0; currently values up to 4)')
     args = parser.parse_args()
     if (args.verbose):
         print "Args: ",args
-
 
 #
 #   Handle simple args (verbose, Schema, magbase, bandlist)
@@ -190,31 +188,31 @@ if __name__ == "__main__":
         if (args.zflag is not None):
             ZptSecondary['flag']=args.z2flag
             print("   Adding constraint on Secondary ZPT using FLAG<{:s}.".format(ZptSecondary['flag']))
-#
-#   Specify BLACKLIST table for use
-#
-    if (args.blacklist.upper() == "NONE"):
-        BlacklistInfo=None;
-        print(" Proceeding with no BLACKLIST table specified.".format(MagBase))
-    else:
-        BlacklistInfo={}
-        if (len(args.blacklist.split('.')) > 1):
-            BlacklistInfo['table']=args.blacklist
-        else:
-            BlacklistInfo['table']='%s%s' % (dbSchema,args.blacklist)
-        print(" Proceeding with constraints using {:s} for BLACKLIST constraint.".format(BlacklistInfo['table']))
+##
+##   Specify BLACKLIST table for use
+##
+#    if (args.blacklist.upper() == "NONE"):
+#        BlacklistInfo=None;
+#        print(" Proceeding with no BLACKLIST table specified.".format(MagBase))
+#    else:
+#        BlacklistInfo={}
+#        if (len(args.blacklist.split('.')) > 1):
+#            BlacklistInfo['table']=args.blacklist
+#        else:
+#            BlacklistInfo['table']='%s%s' % (dbSchema,args.blacklist)
+#        print(" Proceeding with constraints using {:s} for BLACKLIST constraint.".format(BlacklistInfo['table']))
 
-#
-#   Specify Fiat TABLE (table that declares image to tile correspondence).
-#
-    if (len(args.fiat_table.split('.')) > 1):
-        FiatTable=args.fiat_table
-    else:
-        FiatTable='%s%s' % (dbSchema,args.fiat_table)
-    if (not(args.brute_force)):
-        print(" Proceeding with constraints using {:s} to tie Image to Tiles.".format(FiatTable))
-    else:
-        print(" Will perform a brute force query to tie Image to Tiles.")
+##
+##   Specify Fiat TABLE (table that declares image to tile correspondence).
+##
+#    if (len(args.fiat_table.split('.')) > 1):
+#        FiatTable=args.fiat_table
+#    else:
+#        FiatTable='%s%s' % (dbSchema,args.fiat_table)
+#    if (not(args.brute_force)):
+#        print(" Proceeding with constraints using {:s} to tie Image to Tiles.".format(FiatTable))
+#    else:
+#        print(" Will perform a brute force query to tie Image to Tiles.")
 
 #   Finished rationalizing input
 ########################################################
@@ -229,28 +227,38 @@ if __name__ == "__main__":
 #    cur = dbh.cursor()
 
     t0=time.time()
-    ImgDict={}
-    if (args.brute_force):
-        print "Images Acquired by Brute Force Query using edges for tile=%s" % (args.tile)
-        ImgDict=me.query_coadd_img_by_edges(ImgDict,args.tile,args.proctag,BandList,ArchiveSite,dbh,dbSchema,verbose)
+#
+#   Obtain the attempt ID for a given COADD tile from specific PROCTAG
+#
+    attemptID=mepochmisc.find_tile_attempt(args.tile,args.me_proctag,dbh,dbSchema,Timing=True,verbose=verbose)
+    if (attemptID is None):
+        print("Failed to identify an attempt for TILE={tile:s} for PROCTAG={ptag:s}.".format(
+            tile=args.tile,ptag=args.me_proctag))
+        print("Aborting")
+        exit(1)
     else:
-        print "Images Acquired by Pre-computed relationship between Images and Tile for tile=%s" % (args.tile)
-        ImgDict=me.query_coadd_img_by_fiat(ImgDict,args.tile,args.proctag,BandList,ArchiveSite,FiatTable,dbh,dbSchema,verbose)
+        if (verbose > 0):
+            print("Identified attempt as PFW_ATTEMPT_ID={:d}".format(attemptID))
+#
+#   Now obtain the input images and their associated .head files by matching to the nullwgt images from the COADD attempt
+#
+    print("Acquiring single-epoch images based on previous attempt for tile={:s}".format(args.tile))
+    ImgDict={}
+    ImgDict=me.query_coadd_img_from_attempt(ImgDict,attemptID,BandList,ArchiveSite,dbh,dbSchema,verbose)
+    print("    Execution Time: {:.2f}".format(time.time()-t0))
+    print("    Img Dict size: {:d}".format(len(ImgDict)))
 
-    print "    Execution Time: %.2f" % (time.time()-t0)
-    print "    Img Dict size: ",len(ImgDict)
+    ImgDict=me.query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose)
+    print("ZeroPoint query run ")
+    print("    Execution Time: {:.2f}".format(time.time()-t0))
+    print("    Img Dict size: {:d}".format(len(ImgDict)))
 
-    if (ZptInfo is not None):
-        ImgDict=me.query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose)
-        print "ZeroPoint query run " 
-        print "    Execution Time: %.2f" % (time.time()-t0)
-        print "    Img Dict size: ",len(ImgDict)
+#    if (BlacklistInfo is not None):
+#        ImgDict=me.query_blacklist(ImgDict,BlacklistInfo,dbh,dbSchema,verbose)
+#        print "Blacklist query run " 
+#        print "    Execution Time: %.2f" % (time.time()-t0)
+#        print "    Img Dict size: ",len(ImgDict)
 
-    if (BlacklistInfo is not None):
-        ImgDict=me.query_blacklist(ImgDict,BlacklistInfo,dbh,dbSchema,verbose)
-        print "Blacklist query run " 
-        print "    Execution Time: %.2f" % (time.time()-t0)
-        print "    Img Dict size: ",len(ImgDict)
 #
 #   Convert zeropoint (mag_zero) into a fluxscale.
 #
@@ -261,30 +269,20 @@ if __name__ == "__main__":
             ImgDict[Img]['mag_zero']=MagBase
             ImgDict[Img]['fluxscale']=1.0
 
-    if (not(args.no_MEDs)):
-        BkgDict=me.query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
-        print " Bkg image query run"
-        print "    Execution Time: %.2f" % (time.time()-t0)
-        print "    Bkg Dict size: ",len(BkgDict)
+    HeadDict=me.query_headfile_from_attempt(ImgDict,attemptID,ArchiveSite,dbh,dbSchema,verbose)
+    print(" Head file query run")
+    print("    Execution Time: {:.2f}".format(time.time()-t0))
+    print("    Head Dict size: {:d} ".format(len(HeadDict)))
 
-    if (not(args.no_MEDs)):
-        SegDict=me.query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
-        print " Segmentation Map query run"
-        print "    Execution Time: %.2f" % (time.time()-t0)
-        print "    Seg Dict size: ",len(SegDict)
+    BkgDict=me.query_bkg_img(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
+    print(" Bkg image query run")
+    print("    Execution Time: {:.2f}".format(time.time()-t0))
+    print("    Bkg Dict size: {:d}".format(len(BkgDict)))
 
-    if (not(args.no_MEDs)):
-        PsfDict=me.query_psfmodel(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
-        print " Segmentation Map query run"
-        print "    Execution Time: %.2f" % (time.time()-t0)
-        print "    PSF Dict size: ",len(PsfDict)
-
-
-    CatDict=me.query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
-    print " Catalog query run"
-    print "    Execution Time: %.2f" % (time.time()-t0)
-    print "    Cat Dict size: ",len(CatDict)
-
+    SegDict=me.query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose)
+    print(" Segmentation Map query run")
+    print("    Execution Time: {:.2f}".format(time.time()-t0))
+    print("    Seg Dict size: {:d}".format(len(SegDict)))
 
 #
 #   Close DB connection?
@@ -312,33 +310,19 @@ if __name__ == "__main__":
     for band in BandList:
         BandCnt[band]=0
     for Img in ImgDict:
-        if (args.no_MEDs):
-            if (Img in CatDict):
-                OutDict[Img]={}
-                OutDict[Img]['red']=ImgDict[Img]
-                OutDict[Img]['cat']=CatDict[Img]
-                BandCnt[ImgDict[Img]['band']]=BandCnt[ImgDict[Img]['band']]+1
-        else:
-            if ((Img in BkgDict)and(Img in SegDict)and(Img in CatDict)and(Img in PsfDict)):
-                OutDict[Img]={}
-                OutDict[Img]['red']=ImgDict[Img]
-                OutDict[Img]['bkg']=BkgDict[Img]
-                OutDict[Img]['seg']=SegDict[Img]
-                OutDict[Img]['psf']=PsfDict[Img]
-                OutDict[Img]['cat']=CatDict[Img]
-                BandCnt[ImgDict[Img]['band']]=BandCnt[ImgDict[Img]['band']]+1
+        if ((Img in BkgDict)and(Img in SegDict)and(Img in HeadDict)):
+            OutDict[Img]={}
+            OutDict[Img]['red']=ImgDict[Img]
+            OutDict[Img]['bkg']=BkgDict[Img]
+            OutDict[Img]['seg']=SegDict[Img]
+            OutDict[Img]['head']=HeadDict[Img]
+            BandCnt[ImgDict[Img]['band']]=BandCnt[ImgDict[Img]['band']]+1
 
-    if (args.no_MEDs):
-        filetypes=['red','cat']
-        mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
-                    'cat':['filename','compression','expnum','ccdnum','band','mag_zero']}
-    else:
-        filetypes=['red','bkg','seg','psf','cat']
-        mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
-                    'bkg':['filename','compression','expnum','ccdnum','band'],
-                    'seg':['filename','compression','expnum','ccdnum','band'],
-                    'psf':['filename','compression','expnum','ccdnum','band'],
-                    'cat':['filename','compression','expnum','ccdnum','band','mag_zero']}
+    filetypes=['red','bkg','seg','head']
+    mdatatypes={'red':['filename','compression','expnum','ccdnum','band','mag_zero','fluxscale'],
+                'bkg':['filename','compression','expnum','ccdnum','band'],
+                'seg':['filename','compression','expnum','ccdnum','band'],
+                'head':['filename','compression','expnum','ccdnum','band']}
     Img_LLD=me.ImgDict_to_LLD(OutDict,filetypes,mdatatypes,verbose)
 
 #
@@ -369,12 +353,8 @@ if __name__ == "__main__":
         imgfile=open(args.imglist,'w')
         for Img in ImgDict:
             wrec=False
-            if (args.no_MEDs):
-                if (Img in CatDict):
-                    wrec=True
-            else:
-                if ((Img in BkgDict)and(Img in SegDict)and(Img in CatDict)):
-                    wrec=True
+            if ((Img in BkgDict)and(Img in SegDict)and(Img in HeadDict)):
+                wrec=True
             if (wrec):
                 imgfile.write(" {enum:8d} {cnum:2d} {bnd:5s} {zpt:8.5f}\n".format(
                     enum=ImgDict[Img]['expnum'],
@@ -410,21 +390,6 @@ if __name__ == "__main__":
         mepochmisc.write_textlist(dbh,ImgDict,args.ima_list, fields=['fullname','band','mag_zero'],verb=args.verbose)
 
     if args.bkg_list:
-        if (not(args.no_MEDs)):
-            mepochmisc.write_textlist(dbh,BkgDict,args.bkg_list, fields=['fullname','band'],verb=args.verbose)
-        else:
-            print("Option --no_MEDs precludes search for BKG images.  Skipping write for --bkg_list {:s}".format(args.bkg_list))
-
-    if args.seg_list:
-        if (not(args.no_MEDs)):
-            mepochmisc.write_textlist(dbh,SegDict,args.seg_list, fields=['fullname','band'],verb=args.verbose)
-        else:
-            print("Option --no_MEDs precludes search for SEGMAP images.  Skipping write for --seg_list {:s}".format(args.seg_list))
-
-    if args.psf_list:
-        if (not(args.no_MEDs)):
-            mepochmisc.write_textlist(dbh,PsfDict,args.psf_list, fields=['fullname','band'],verb=args.verbose)
-        else:
-            print("Option --no_MEDs precludes search for PSF models.  Skipping write for --psf_list {:s}".format(args.psf_list))
+        mepochmisc.write_textlist(dbh,BkgDict,args.bkg_list, fields=['fullname','band'],verb=args.verbose)
 
     exit()

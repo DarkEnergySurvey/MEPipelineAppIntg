@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# $Id$
-# $Rev::                                  $:  # Revision of last commit.
-# $LastChangedBy::                        $:  # Author of last commit.
+# $Id: coadd_query.py 48310 2019-03-01 16:24:53Z rgruendl $
+# $Rev:: 48310                            $:  # Revision of last commit.
+# $LastChangedBy:: rgruendl               $:  # Author of last commit.
 # $LastCha
 """
 A set of queries to obtain inputs for the COADD pipeline.
@@ -291,6 +291,94 @@ def query_coadd_img_by_fiat(ImgDict,CoaddTile,ProcTag,BandList,ArchiveSite,FiatT
 
 
 ######################################################################################
+def query_coadd_img_from_attempt(ImgDict,attemptID,BandList,ArchiveSite,dbh,dbSchema,verbose=0):
+    """ Query code to obtain image inputs for COADD (based on a previous successful
+        mulitepoch/COADD attempt.
+
+        Use an existing DB connection to execute a query for RED_IMMASK image
+        products that were found previously to overlap a specific COADD tile.
+        Return a dictionary of Images along with with basic properties (expnum, 
+        ccdnum, band, nite).
+
+        Inputs:
+            ImgDict:   Existing ImgDict, new records are added (and possibly old records updated)
+            attemptID: Exisitng (completed) attempt
+            BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
+            ArchiveSite: Constraint that data/files exist within a specific archive
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            ImgDict:   Updated version of input ImgDict
+    """
+#
+#   Pre-assemble constraint based on BandList
+#
+    BandConstraint=''
+    if (len(BandList)>0):
+        BandConstraint="and i.band in ('" + "','".join([d.strip() for d in BandList]) + "')"
+#
+#   Query to obtain images and associated metadata.  Note the current version may be
+#   counter-intuitive and makes two references to image: "image i" and "image j".  
+#   This is necessary for the workhorse portion of the query (image j) to make use 
+#   of the indices (over RACMIN, RACMAX...).  The second instance (image i)
+#   is necessary to obtain other infomration (e.g. band, expnum, ccdnum) in a way that 
+#   does not confuse Oracle into ignoring the index and instead executing the query as a 
+#   table scan.  Under our current database this may be fragile... also, experimentation
+#   has shown that this cannot be fixed by simply forcing the index with a runtime 
+#   directive (e.g. /* +index */
+#
+    
+    query="""SELECT 
+        fai.filename as filename,
+        fai.path as path,            
+        fai.compression as compression,
+        i.band as band,
+        i.expnum as expnum,
+        i.ccdnum as ccdnum,
+        i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
+        i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
+    FROM {schema:s}image i, {schema:s}desfile d, {schema:s}desfile d2, {schema:s}opm_was_derived_from wdf, {schema:s}file_archive_info fai
+    WHERE d.pfw_attempt_id={AID:d}
+        and d.filetype='coadd_nwgint'
+        and d.id=wdf.child_desfile_id
+        and wdf.parent_desfile_id=d2.id
+        and d2.filetype='red_immask'
+        and d2.filename=i.filename
+        and d2.id=fai.desfile_id
+        and fai.archive_name='{archive:s}' 
+        """.format(
+        schema=dbSchema,
+        AID=attemptID,
+        archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB=dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+#        ImgName=rowd['filename']
+#        ImgDict[ImgName]=rowd
+        if (rowd['band'] in BandList):
+            ImgName=rowd['filename']
+            ImgDict[ImgName]=rowd
+#            ImgList.append([ImgName])
+        else:
+            if (verbose > 1):
+                print(" Post query constraint removed {:s}-band image: {:s} ".format(rowd['band'],rowd['filename']))
+
+    return ImgDict
+
+
+######################################################################################
 def query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose=0):
     """ Query code to obtain zeropoints for a set of images in existing ImgDict.
         Use an existing DB connection to execute a query to obtain ZEROPOINTs 
@@ -346,8 +434,15 @@ def query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose=0):
 #   Prepare GTT_FILENAME table with list of possible inputs 
 #
     ImgList=[]
+    NewImgDict={}
     for ImgName in ImgDict:
-        ImgList.append([ImgName])
+        if ('mag_zero' not in ImgDict[ImgName]):
+            ImgList.append([ImgName])
+        else:
+            if (ImgDict[ImgName]['mag_zero'] is None):
+                ImgList.append([ImgName])
+            else:
+                NewImgDict[ImgName]=ImgDict[Imgname]
 
     # Make sure the GTT_FILENAME table is empty
     curDB=dbh.cursor()
@@ -382,20 +477,13 @@ def query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose=0):
     desc = [d[0].lower() for d in curDB.description]
 
 #
-#   New image dictionary is formed so that images that do not return in this query are not returned
+#   New image dictionary is updated (so that images with zeropoints will be returned)
 
-    NewImgDict={}
     for row in curDB:
         rowd = dict(zip(desc, row))
         ImgName=rowd['filename']
-        if (ImgName in ImgDict):
-            NewImgDict[ImgName]=ImgDict[ImgName]
-            if ('mag_zero' in rowd):
-                NewImgDict[ImgName]['mag_zero']=rowd['mag_zero']
-#            NewImgList.append([ImgName])
-        else:
-            if (verbose > 2):
-                print(" No matching record? in query for zeropoint for (ImgName={:s} ".format(ImgName))
+        NewImgDict[ImgName]=ImgDict[ImgName]
+        NewImgDict[ImgName]['mag_zero']=rowd['mag_zero']
 
 #
 #   Secondary zeropoint query
@@ -418,18 +506,19 @@ def query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose=0):
 #       Prepare GTT_FILENAME table with list of possible inputs 
 #       Note this could be re-instated and only query over those images that do not yet have a zeropoint.
 #
-#        ImgList=[]
-#        for ImgName in ImgDict:
-#           ImgList.append([ImgName])
-#        # Make sure the GTT_FILENAME table is empty
-#        curDB=dbh.cursor()
-#        curDB.execute('delete from GTT_FILENAME')
-#        # load img ids into opm_filename_gtt table
-#        print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
-#        dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
-#        curDB.execute('select count(*) from gtt_filename')
-#        for row in curDB:
-#            print "GTT_FILENAME check found ",row," rows."
+        ImgList=[]
+        for ImgName in ImgDict:
+            if (ImgName not in NewImgDict):
+                ImgList.append([ImgName])
+        # Make sure the GTT_FILENAME table is empty
+        curDB=dbh.cursor()
+        curDB.execute('delete from GTT_FILENAME')
+        # load img ids into opm_filename_gtt table
+        print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+        dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+        curDB.execute('select count(*) from gtt_filename')
+        for row in curDB:
+            print "GTT_FILENAME check found ",row," rows."
 #
 #       Query to obtain zeropoints 
 #
@@ -472,7 +561,7 @@ def query_zeropoint(ImgDict,ZptInfo,ZptSecondary,dbh,dbSchema,verbose=0):
                             print(" No matching record? in query for zeropoint for (ImgName={:s} ".format(ImgName))
 
     ImgDict=NewImgDict 
-#    ImgList=NewImgList
+
     return ImgDict
 
 
@@ -712,6 +801,145 @@ def query_segmap(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
 
 
 ######################################################################################
+def query_psfmodel(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
+    """ Query code to obtain PSF Models (psfex_model) associated with a set of red_immask images.
+        Use an existing DB connection to execute a query to obtain PSFEX_MODEL files
+        for an existing set of images.  
+
+        Inputs:
+            ImgDict:    Existing ImgDict
+            ArchiveSite: Archive_name 
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            PsfDict:   Ouput dictionary of PSF Model files
+    """
+#
+#   Prepare GTT_FILENAME table with list of possible inputs 
+#
+    ImgList=[]
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
+
+#   Setup DB cursor
+    curDB=dbh.cursor()
+#   Make sure teh GTT_FILENAME table is empty
+    curDB.execute('delete from GTT_FILENAME')
+#   load img ids into opm_filename_gtt table
+    print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+#
+#   Obtain associated segmentation map image (red_segmap).
+#
+    query="""SELECT 
+        i.filename as redfile,
+        fai.filename as filename,
+        fai.path as path,
+        fai.compression as compression,
+        m.band as band,
+        m.expnum as expnum,
+        m.ccdnum as ccdnum
+    FROM {schema:s}image i, {schema:s}miscfile m, {schema:s}file_archive_info fai, GTT_FILENAME gtt
+    WHERE i.filename=gtt.filename
+        and i.pfw_attempt_id=m.pfw_attempt_id
+        and m.filetype='psfex_model'
+        and i.ccdnum=m.ccdnum
+        and m.filename=fai.filename
+        and fai.archive_name='{archive:s}'
+    """.format(schema=dbSchema,archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain PSFex models corresponding to the red_immasked images")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    PsfDict={}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName=rowd['redfile']
+        PsfDict[ImgName]=rowd
+
+    return PsfDict
+
+
+######################################################################################
+def query_headfile_from_attempt(ImgDict,attemptID,ArchiveSite,dbh,dbSchema,verbose=0):
+    """ Query code to obtain headfiles from a previous multiepoch/COADD attempt 
+        that are associated with a set of red_immask images.
+        Use an existing DB connection to execute a query to obtain coadd_head_scamp files
+        for an existing set of images.  
+
+        Inputs:
+            ImgDict:    Existing ImgDict
+            attemptID:  Attempt ID from previous run that gives a specific set of head files
+            ArchiveSite: Archive_name 
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            HeadDict:   Ouput dictionary of head files.
+    """
+#
+#   Prepare GTT_FILENAME table with list of possible inputs 
+#
+    ImgList=[]
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
+
+#   Setup DB cursor
+    curDB=dbh.cursor()
+#   Make sure teh GTT_FILENAME table is empty
+    curDB.execute('delete from GTT_FILENAME')
+#   load img ids into opm_filename_gtt table
+    print("# Loading GTT_FILENAME table for secondary queries with entries for {:d} images".format(len(ImgList)))
+    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+#
+#   Obtain associated segmentation map image (red_segmap).
+#
+    query="""SELECT 
+        i.filename as redfile,
+        fai.filename as filename,
+        fai.path as path,
+        fai.compression as compression,
+        m.band as band,
+        m.expnum as expnum,
+        m.ccdnum as ccdnum
+    FROM {schema:s}image i, {schema:s}miscfile m, {schema:s}file_archive_info fai, GTT_FILENAME gtt
+    WHERE i.filename=gtt.filename
+        and m.pfw_attempt_id={AID:d}
+        and m.filetype='coadd_head_scamp'
+        and i.ccdnum=m.ccdnum
+        and i.expnum=m.expnum
+        and m.filename=fai.filename
+        and fai.archive_name='{archive:s}'
+    """.format(schema=dbSchema,AID=attemptID,archive=ArchiveSite)
+
+    if (verbose > 0):
+        print("# Executing query to obtain head files corresponding to the red_immasked images")
+        if (verbose == 1):
+            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
+        if (verbose > 1):
+            print("# sql = {:s}".format(query))
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    HeadDict={}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName=rowd['redfile']
+        HeadDict[ImgName]=rowd
+
+    return HeadDict
+
+
+######################################################################################
 def query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
     """ Query code to obtain CAT_FINALCUT catalogs associated with a set of red_immask images.
         Use an existing DB connection to execute a query to obtain RED_SEGMAP images
@@ -779,8 +1007,6 @@ def query_catfinalcut(ImgDict,ArchiveSite,dbh,dbSchema,verbose=0):
             CatDict[ImgName]['mag_zero']=ImgDict[ImgName]['mag_zero']
 
     return CatDict
-
-
 
 
 ######################################################################################
@@ -1307,7 +1533,7 @@ def query_astref_catfinalcut_by_fiat(CatDict,CoaddTile,ProcTag,dbh,dbSchema,Band
 
 
 ######################################################################################
-def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,ArchiveSite,dbh,dbSchema,verbose=0):
+def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,COADD_ONLY,BandList,ArchiveSite,dbh,dbSchema,verbose=0):
     """ Query code to obtain inputs for MOF/NGMIX (multi-epoch fitting and WL shape)
         Use an existing DB connection to execute a query for MEDs and associated 
         single-epoch PSFex models.
@@ -1315,7 +1541,8 @@ def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,Ar
         Inputs:
             QueryType: Either 'meds' or 'psfmodel' (
             CoaddTile: Name of COADD tile for search
-            ProcTag:   Processing Tag used to constrain pool of input images
+            CoaddProcTag: Processing Tag used to constrain pool of input coadd runs
+            SE_ProcTag:   Processing Tag used to constrain pool of input SE images/psf
             BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             ArchiveSite: Constraint that data/files exist within a specific archive
             dbh:       Database connection to be used
@@ -1391,29 +1618,46 @@ def query_meds_psfmodels(QueryType,CoaddTile,CoaddProcTag,SE_ProcTag,BandList,Ar
 #
 #       Query for the PSF Model Files from the Single-Epoch runs.
 # 
-        query="""SELECT fai.filename as filename,
-                fai.path as path,
-                fai.compression as compression,
-                m.expnum as expnum,
-                m.ccdnum as ccdnum,
-                m.band as band
-            FROM {schema:s}proctag ts, {schema:s}image i, {schema:s}miscfile m, {schema:s}file_archive_info fai
-            WHERE i.pfw_attempt_id={AttID:d}
-                and i.filetype='coadd_nwgint'
-                and i.ccdnum=m.ccdnum
-                and i.expnum=m.expnum
-                and m.filetype='psfex_model'
-                and m.pfw_attempt_id=ts.pfw_attempt_id
-                and ts.tag='{stag}'
-                and m.filename=fai.filename
-                and fai.archive_name='{archive:s}'""".format(
-            schema=dbSchema,
-            AttID=uAttID[0],
-            stag=SE_ProcTag,
-            archive=ArchiveSite)
+        if (COADD_ONLY):
+            query="""SELECT fai.filename as filename,
+                    fai.path as path,
+                    fai.compression as compression,
+                    -9999 as expnum,
+                    -9999 as ccdnum,
+                    m.band as band
+                FROM {schema:s}miscfile m, {schema:s}file_archive_info fai
+                WHERE m.pfw_attempt_id={AttID:d}
+                    and m.filetype='coadd_psfex_model'
+                    and m.filename=fai.filename
+                    and fai.archive_name='{archive:s}'""".format(
+                schema=dbSchema,
+                AttID=uAttID[0],
+                archive=ArchiveSite)
+        else:
+            query="""SELECT fai.filename as filename,
+                    fai.path as path,
+                    fai.compression as compression,
+                    m.expnum as expnum,
+                    m.ccdnum as ccdnum,
+                    m.band as band
+                FROM {schema:s}proctag ts, {schema:s}image i, {schema:s}miscfile m, {schema:s}file_archive_info fai
+                WHERE i.pfw_attempt_id={AttID:d}
+                    and i.filetype='coadd_nwgint'
+                    and i.ccdnum=m.ccdnum
+                    and i.expnum=m.expnum
+                    and m.filetype='psfex_model'
+                    and m.pfw_attempt_id=ts.pfw_attempt_id
+                    and ts.tag='{stag}'
+                    and m.filename=fai.filename
+                    and fai.archive_name='{archive:s}'""".format(
+                schema=dbSchema,
+                AttID=uAttID[0],
+                stag=SE_ProcTag,
+                archive=ArchiveSite)
+
 
         if (verbose > 0):
-            print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
+            print("# Executing query to obtain PSF models")
             if (verbose == 1):
                 print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
             if (verbose > 1):
