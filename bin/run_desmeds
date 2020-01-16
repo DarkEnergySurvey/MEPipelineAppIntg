@@ -1,120 +1,119 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import os
 import sys
 import time
-from despymisc.miscutils import elapsed_time
 import subprocess
-
 import fitsio
+from despymisc.miscutils import elapsed_time
+
 import despyastro
 from despydb import desdbi
 
 EXE = 'desmeds-make-meds-desdm'
 
-def paste_files(file1,file2,output):
+def paste_files(file1, file2, output):
     f1 = open(file1, "r")
     f2 = open(file2, "r")
-    out = open(output,"w")
+    out = open(output, "w")
     for line in f1:
         red = line.split()[0]
         zp = line.split()[1]
         hdr = f2.readline().strip()
-        out.write("%s %s %s\n" % (red,hdr,zp))
+        out.write(f"{red} {hdr} {zp}\n")
 
 def make_coadd_object_map(args):
-
-    """ Writes out a map between the SExtractor NUMBER and COADD_OBJECT.ID """
+    """ Writes out a map between the SExtractor NUMBER and COADD_OBJECT.ID
+    """
 
     catname = os.path.basename(args.coadd_cat_url)
     tablename = args.coadd_object_tablename
 
     # Get a dbh handle to query
-    dbh = desdbi.DesDbi(section=args.db_section,retry=True)
+    dbh = desdbi.DesDbi(section=args.db_section, retry=True)
     # Format and query with query2rec
-    QUERY_MAP = "select OBJECT_NUMBER,ID from %s where FILENAME='%s' order by object_number" % (tablename,catname)
-    print "# Will query: "
-    print QUERY_MAP
-    map_data = despyastro.query2rec(QUERY_MAP,dbhandle=dbh,verb=True)
+    QUERY_MAP = f"select OBJECT_NUMBER,ID from {tablename} where FILENAME='{catname}' order by object_number"
+    print("# Will query: ")
+    print(QUERY_MAP)
+    map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
 
     # Make sure we get an answer, if no entries found query2rec() will return False
     if map_data is False:
         # Try alt-table
         tablename = 'COADD_OBJECT_SAVE'
-        QUERY_MAP = "select OBJECT_NUMBER,ID from %s where FILENAME='%s' order by object_number" % (tablename,catname)
-        print "# WARNING: Query to %s returned no objects, cannot create coadd_object map" % tablename
-        print "# Will try now %s" % tablename
-        print QUERY_MAP
-        map_data = despyastro.query2rec(QUERY_MAP,dbhandle=dbh,verb=True)
+        QUERY_MAP = f"select OBJECT_NUMBER,ID from {tablename} where FILENAME='{catname}' order by object_number"
+        print(f"# WARNING: Query to {tablename} returned no objects, cannot create coadd_object map")
+        print(f"# Will try now {tablename}")
+        print(QUERY_MAP)
+        map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
 
         if map_data is False:
-            raise ValueError("ERROR: Query to %s returned no objects, cannot create coadd_object map" % tablename)
-        else:
-            print "# Sucessfull query to %s" % tablename
+            raise ValueError("ERROR: Query to {tablename} returned no objects, cannot create coadd_object map")
+
+        print(f"# Sucessfull query to {tablename}")
     else:
-        print "# Sucessfull query to %s" % tablename
+        print(f"# Sucessfull query to {tablename}")
 
     # Write a fits file with the record array
-    fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS',clobber=True)
-    print "# Wrote COADD_OBJECT map to: %s" % args.coadd_object_map
-    return
+    fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS', clobber=True)
+    print(f"# Wrote COADD_OBJECT map to: {args.coadd_object_map}")
+
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="Create the input yaml files for MED files and runs it")
-    parser.add_argument("--band", type=str, action="store",default=None, required=True,
+    parser.add_argument("--band", type=str, action="store", default=None, required=True,
                         help="Band")
-    parser.add_argument("--coadd_cat", dest='coadd_cat_url', type=str,action="store",default=None, required=True,
+    parser.add_argument("--coadd_cat", dest='coadd_cat_url', type=str, action="store", default=None, required=True,
                         help="The name of the coadd catalog")
-    parser.add_argument("--coadd_image", dest='coadd_image_url',type=str, action="store",default=None, required=True,
+    parser.add_argument("--coadd_image", dest='coadd_image_url', type=str, action="store", default=None, required=True,
                         help="The name of the coadd image")
-    parser.add_argument("--coadd_seg", dest='coadd_seg_url', type=str, action="store",default=None, required=True,
+    parser.add_argument("--coadd_seg", dest='coadd_seg_url', type=str, action="store", default=None, required=True,
                         help="The name of the coadd SExtractor SEG image ")
-    parser.add_argument("--coadd_psf", dest='coadd_psf_url', type=str, action="store",default=None, required=True,
+    parser.add_argument("--coadd_psf", dest='coadd_psf_url', type=str, action="store", default=None, required=True,
                         help="The name of the coadd psfex model ")
-    parser.add_argument("--coadd_magzp", type=float, action="store",default=30.0,
+    parser.add_argument("--coadd_magzp", type=float, action="store", default=30.0,
                         help="The coadd magnitude zero point")
-    parser.add_argument("--nwg_flist", dest='finalcut_flist', type=str, action="store",default=None,
+    parser.add_argument("--nwg_flist", dest='finalcut_flist', type=str, action="store", default=None,
                         help="Output list with finalcut/red-immask, ohead and zero-points")
-    parser.add_argument("--finalcut_flist", dest='finalcut_flist', type=str, action="store",default=None,
+    parser.add_argument("--finalcut_flist", dest='finalcut_flist', type=str, action="store", default=None,
                         help="Output list with finalcut/red-immask, ohead and zero-points")
-    parser.add_argument("--seg_flist", type=str, action="store",default=None,
+    parser.add_argument("--seg_flist", type=str, action="store", default=None,
                         help="Input file list with segmentation images")
-    parser.add_argument("--bkg_flist", type=str, action="store",default=None,
+    parser.add_argument("--bkg_flist", type=str, action="store", default=None,
                         help="Input file list with background images")
-    parser.add_argument("--psf_flist", type=str, action="store",default=None,
+    parser.add_argument("--psf_flist", type=str, action="store", default=None,
                         help="Input file list with psfex model images")
-    parser.add_argument("--hdr_flist", type=str, action="store",default=None,
+    parser.add_argument("--hdr_flist", type=str, action="store", default=None,
                         help="Input file list with header files")
-    parser.add_argument("--red_flist", type=str, action="store",default=None,
+    parser.add_argument("--red_flist", type=str, action="store", default=None,
                         help="Input file list with images and zero points")
-    parser.add_argument("--coadd_object_map", type=str, action="store",default=None,
+    parser.add_argument("--coadd_object_map", type=str, action="store", default=None,
                         help="File with map between COADD_OBJECT ID and SExtractor OBJECT_NUMBER")
-    parser.add_argument("--coadd_object_tablename", type=str, action="store",default='COADD_OBJECT',
+    parser.add_argument("--coadd_object_tablename", type=str, action="store", default='COADD_OBJECT',
                         help="Name of the table with COADD_OBJECT")
-    parser.add_argument("--db_section", type=str, action="store",default=None, #choices=['db-desoper','db-destest'],
+    parser.add_argument("--db_section", type=str, action="store", default=None, #choices=['db-desoper','db-destest'],
                         help="Database section to connect")
-    parser.add_argument("--meds_output", dest='meds_url', type=str, action="store",default=None, required=True,
+    parser.add_argument("--meds_output", dest='meds_url', type=str, action="store", default=None, required=True,
                         help="The output MED name")
-    parser.add_argument("--tileconf", type=str, action="store",default=None, required=True,
+    parser.add_argument("--tileconf", type=str, action="store", default=None, required=True,
                         help="The generated (yaml) output fileconf for the tile where we want run")
-    parser.add_argument("--medsconf", type=str, action="store",default=None, required=True,
+    parser.add_argument("--medsconf", type=str, action="store", default=None, required=True,
                         help="The general (yaml) conf file")
-    parser.add_argument("--have_se_images_True",action="store_true",dest='have_se_images', default=True,
+    parser.add_argument("--have_se_images_True", action="store_true", dest='have_se_images', default=True,
                         help="Set have_se_images as True")
-    parser.add_argument("--have_se_images_False",action="store_false",dest='have_se_images', default=True,
+    parser.add_argument("--have_se_images_False", action="store_false", dest='have_se_images', default=True,
                         help="Set have_se_images as False")
-    parser.add_argument("--tilename", dest='tilename', type=str, action="store",default=None, required=True,
+    parser.add_argument("--tilename", dest='tilename', type=str, action="store", default=None, required=True,
                         help="The name of the coadd SExtractor ")
-    parser.add_argument("--source_type", dest='source_type', type=str, action="store",default='finalcut',
+    parser.add_argument("--source_type", dest='source_type', type=str, action="store", default='finalcut',
                         help="The name of the coadd SExtractor ")
-    parser.add_argument("--dryrun", action="store_true",default=False,
+    parser.add_argument("--dryrun", action="store_true", default=False,
                         help="Print and exit?")
 
 
     # The keys to ignore when writing the yaml file
-    ignore_args = ['dryrun','medsconf','db_section','coadd_object_tablename','hdr_flist','red_flist']
+    ignore_args = ['dryrun', 'medsconf', 'db_section', 'coadd_object_tablename', 'hdr_flist', 'red_flist']
 
     # Parse the args and get the extras
     args = parser.parse_args()
@@ -130,12 +129,12 @@ if __name__ == "__main__":
         del data['coadd_object_map']
 
     # Paste the files toegether
-    paste_files(args.red_flist,args.hdr_flist,args.finalcut_flist)
-    print "Wrote file: ",args.finalcut_flist
-    
+    paste_files(args.red_flist, args.hdr_flist, args.finalcut_flist)
+    print("Wrote file: ", args.finalcut_flist)
+
     # Write the new yaml file, we pop from the dictionary
-    tileconf = data.pop('tileconf',None)
-    with open(tileconf,'w') as tileconfig_output:
+    tileconf = data.pop('tileconf', None)
+    with open(tileconf, 'w') as tileconfig_output:
 
         for key in sorted(data.keys()):
             value = data[key]
@@ -149,27 +148,27 @@ if __name__ == "__main__":
                 continue
 
             if isinstance(value, str):
-                value = '\'%s\'' % value
-            tileconfig_output.write( "%-18s %s\n" %  (key+":", value))
+                value = f'\'{value}\''
+            tileconfig_output.write(f"{key + ':':-18s} {value}\n")
 
-    print "# Wrote yaml configuration to: %s" % tileconf
+    print(f"# Wrote yaml configuration to: {tileconf}")
 
     # Build the command
-    cmd =  "%s %s %s" % (EXE, args.medsconf, tileconf)
+    cmd = f"{EXE} {args.medsconf} {tileconf}"
     sys.stdout.flush()
-    print "# Will execute:"
-    print "# \t%s" % cmd
-    print "# From full call:"
-    print "# %s %s" % (os.path.basename(sys.argv[0]), " ".join(sys.argv[1:]))
+    print("# Will execute:")
+    print(f"# \t{cmd}")
+    print("# From full call:")
+    print(f"# {os.path.basename(sys.argv[0])} {' '.join(sys.argv[1:])}")
 
     # Run the code
     t0 = time.time()
     status = 0
     if not args.dryrun:
         sys.stdout.flush()
-        status = subprocess.call(cmd,shell=True)
-    
+        status = subprocess.call(cmd, shell=True)
+
     if status == 0:
         # Done
-        print "# MEDs creation time: %s" % elapsed_time(t0)
+        print(f"# MEDs creation time: {elapsed_time(t0)}")
     sys.exit(status)

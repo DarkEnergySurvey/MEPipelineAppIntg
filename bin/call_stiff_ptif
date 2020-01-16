@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
-A simple script to make the stiff call for the ME Pipeline that
-will create the ptif files
+    A simple script to make the stiff call for the ME Pipeline that
+    will create the ptif files
 """
 
 import os
@@ -11,7 +11,7 @@ import argparse
 import time
 from despymisc.miscutils import elapsed_time
 
-PTIF_BANDS = ['g','r','i','z','Y','det','u']
+PTIF_BANDS = ['g', 'r', 'i', 'z', 'Y', 'det', 'u']
 STIFF_EXE = 'stiff'
 BKLINE = "\\\n"
 DETNAME = 'det'
@@ -19,87 +19,85 @@ DETNAME = 'det'
 def list2dict(v):
     return dict(v[i:i+2] for i in range(0, len(v), 2))
 
-def read_bandlist(bandlist,verb=False):
-
-    bandnames = {}
+def read_bandlist(bandlist, verb=False):
+    _bandnames = {}
     if verb:
-        print "# Reading bandlist from file: %s" % bandlist
+        print(f"# Reading bandlist from file: {bandlist}")
     for line in open(bandlist).readlines():
-        if line[0] == "#":
+        if line.startswith("#"):
             continue
         band = line.split()[1]
-        bandnames[band] = line.split()[0]
+        _bandnames[band] = line.split()[0]
 
-    return bandnames
+    return _bandnames
 
-def read_maxlevels(levellist,verb=False):  
+def read_maxlevels(levellist, verb=False):
     if verb:
-        print "# Reading MAX_LEVEL list from file: %s" % levellist
+        print(f"# Reading MAX_LEVEL list from file: {levellist}")
 
     levels = {}
     for line in open(levellist).readlines():
-        if line[0] == "#":
+        if line.startswith("#"):
             continue
         band = line.split()[0]
         levels[band] = line.split()[1]
 
     return levels
 
-def build_call(bandanames, maxlevels, **args):
+def build_call(bandanames, maxlevels, **kwargs):
 
-    if args['verb']:
-        print "# Build call PTIF call"
-    
+    if kwargs['verb']:
+        print("# Build call PTIF call")
+
     # Make sure that we use the intersection of both lists
-    bands_present = list( set(bandanames.keys()) & set(maxlevels.keys()) )
-    filenames = ["%s" % bandnames[band] for band in PTIF_BANDS if band in bands_present]
+    bands_present = list(set(bandanames.keys()) & set(maxlevels.keys()))
+    filenames = [f"{bandnames[band]}" for band in PTIF_BANDS if band in bands_present]
     maxvalues = [maxlevels[band] for band in PTIF_BANDS if band in bands_present]
 
     cmd_list = []
-    cmd_list.append("%s" % STIFF_EXE)
+    cmd_list.append(f"{STIFF_EXE}")
     cmd_list.extend(filenames)
 
     pars = {}
-    pars['-MAX_LEVEL']    = ','.join(maxvalues)
-    pars['-NTHREADS']     = 1
-    pars['-DESCRIPTION']  = "'Pseudo Color of coadded image created by DESDM/NCSA'"
-    pars['-COPYRIGHT']    = "'Dark Enery Survey and NCSA/University of Illinois'"
+    pars['-MAX_LEVEL'] = ','.join(maxvalues)
+    pars['-NTHREADS'] = 1
+    pars['-DESCRIPTION'] = "'Pseudo Color of coadded image created by DESDM/NCSA'"
+    pars['-COPYRIGHT'] = "'Dark Enery Survey and NCSA/University of Illinois'"
 
     # Update and overide the parameters from the command line
-    pars.update(args['stiff_parameters'])
+    pars.update(kwargs['stiff_parameters'])
 
     # Go over all of the modifications
-    for param,value in pars.items():
+    for param, value in pars.items():
         # Make sure the Astromatic params start with '-' like -OUTFILE_NAME
         if param[0] != '-':
-            print "# adding '-' to Stiff param %s" % param
-            param = '-'+param
-        cmd_list.append("%s %s" % (param,value))
-    
-    if args['verb']:
-        print "# Will execute:\n"
-        print "%s\n" % BKLINE.join(cmd_list)
+            print(f"# adding '-' to Stiff param {param}")
+            param = '-' + param
+        cmd_list.append(f"{param} {value}")
 
-    if not args['dryrun']:
-        cmd_exe = "%s\n" % " ".join(cmd_list)
+    if kwargs['verb']:
+        print("# Will execute:\n")
+        print(f"{BKLINE.join(cmd_list)}\n")
+
+    if not kwargs['dryrun']:
+        cmd_exe = f"{' '.join(cmd_list)}\n"
         os.system(cmd_exe)
 
-    return 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Call stiff for ptif creatio for the Multi-epoch pipeline")
-    parser.add_argument("bandlist", action="store",default=None,
+    parser.add_argument("bandlist", action="store", default=None,
                         help="List of coadd fits files to use")
-    parser.add_argument("--detimage", action="store",default=None, required=True,
+    parser.add_argument("--detimage", action="store", default=None, required=True,
                         help="The name of the detection image")
-    parser.add_argument("--config_maxlevel", action="store",default=None, required=True,
+    parser.add_argument("--config_maxlevel", action="store", default=None, required=True,
                         help="MAX_LEVEL config file")
-    parser.add_argument("--verb", action="store_true",default=False,
+    parser.add_argument("--verb", action="store_true", default=False,
                         help="Verbose?")
-    parser.add_argument("--dryrun", action="store_true",default=False,
+    parser.add_argument("--dryrun", action="store_true", default=False,
                         help="Print and exit?")
-    
+
     # Parse the args and get the extras
     args, extra_args = parser.parse_known_args(sys.argv[1:])
 
@@ -109,16 +107,15 @@ if __name__ == "__main__":
     t0 = time.time()
 
     # Read in the list and load it into a dictionary
-    bandnames = read_bandlist(args.bandlist,verb=args.verb)
+    bandnames = read_bandlist(args.bandlist, verb=args.verb)
     # Append the detname to the dictionary
     bandnames[DETNAME] = args.detimage
-    
+
     # Read in the MAX_LEVEL
-    max_levels = read_maxlevels(args.config_maxlevel,verb=args.verb)
+    max_levels = read_maxlevels(args.config_maxlevel, verb=args.verb)
 
     # Make the call
-    build_call(bandnames,max_levels,**vars(args))
+    build_call(bandnames, max_levels, **vars(args))
 
     # Done
-    print "# Stiff PTIF creation time: %s" % elapsed_time(t0)
-
+    print(f"# Stiff PTIF creation time: {elapsed_time(t0)}")

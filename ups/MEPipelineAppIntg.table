@@ -1,5 +1,9 @@
-setupRequired(despydb 2.0.5+0)
-setupRequired(IntegrationUtils 2.0.9+6)
-setupRequired(despyastro 0.3.9+4)
+setupRequired(despydb)
+setupRequired(IntegrationUtils)
+setupRequired(despyastro)
+setupRequired(fitsio)
+setupRequired(fitvd)
+setupRequired(despymisc)
+
 envPrepend(PATH, ${PRODUCT_DIR}/bin)
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
