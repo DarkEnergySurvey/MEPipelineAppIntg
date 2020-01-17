@@ -57,6 +57,10 @@ if __name__ == "__main__":
                         help='Flag to also collect associated bkgd images')
     parser.add_argument('--psfmodel', action='store_true', default=False,
                         help='Flag to also collect associated psfmodel files')
+    parser.add_argument('--usepiff', action='store_true', default=False,
+                        help='Flag to use PIFF psfmodel (rather than PSFex')
+    parser.add_argument('--pifftag', action='store', type=str, default=None,
+                        help='Proctag TAG containing PIFF afterburner products (PIFF models)')
     parser.add_argument('--imglist', action='store', type=str, default=None,
                         help='Optional output of a txt-file listing showing expnum, ccdnum, band, zeropoint')
     parser.add_argument('--ima_list', action='store', default=None,
@@ -92,6 +96,14 @@ if __name__ == "__main__":
     PFWattemptID = args.pfw_attempt_id
     ArchiveSite = args.archive
     MagBase = args.magbase
+
+    #
+    #   --pifftag is required if --usepiff is set
+    #
+    if args.usepiff:
+        if args.pifftag is None:
+            print("Aborting: when --usepiff is set --pifftag TAG is required.")
+            exit(1)
 
     #
     #   Specify ZEROPOINT table for use
@@ -264,10 +276,13 @@ if __name__ == "__main__":
         print("    Seg Dict size: ", len(SegDict))
 
     if args.psfmodel:
-        PsfDict = cq.query_psfmodel(ImgDict, ArchiveSite, dbh, dbSchema, verbose)
+        if args.usepiff:
+            PsfDict = cq.query_PIFFmodel(ImgDict, ArchiveSite, dbh, dbSchema, args.pifftag, verbose=verbose)
+        else:
+            PsfDict = cq.query_psfmodel(ImgDict, ArchiveSite, dbh, dbSchema, verbose=verbose)
         print(" PSF Model query run")
         print("    Execution Time: {:.2f}".format(time.time() - t0))
-        print("    Seg Dict size: ", len(PsfDict))
+        print("    PSF Dict size: ", len(PsfDict))
 
     #
     #   Close DB connection?

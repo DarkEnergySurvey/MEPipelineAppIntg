@@ -32,8 +32,8 @@ def query_coadd_geometry(TileDict, CoaddTile, dbh, dbSchema, verbose=0):
         t.decc1 as decc1, t.decc2 as decc2, t.decc3 as decc3, t.decc4 as decc4,
         t.crossra0 as crossra0,
         t.pixelscale as pixelscale, t.naxis1 as naxis1, t.naxis2 as naxis2
-    FROM {dbSchema}coaddtile_geom t
-    WHERE t.tilename = '{CoaddTile}'
+        FROM {dbSchema}coaddtile_geom t
+        WHERE t.tilename = '{CoaddTile}'
         """
 
     if verbose > 0:
@@ -111,21 +111,21 @@ def query_coadd_img_by_edges(ImgDict, CoaddTile, ProcTag, BandList, ArchiveSite,
         i.ccdnum as ccdnum,
         i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
         i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
-    FROM {dbSchema:s}image i, {dbSchema:s}file_archive_info fai, {dbSchema:s}proctag t, {dbSchema:s}coaddtile_geom ct
-    WHERE t.tag='{ProcTag:s}'
+        FROM {dbSchema:s}image i, {dbSchema:s}file_archive_info fai, {dbSchema:s}proctag t, {dbSchema:s}coaddtile_geom ct
+        WHERE t.tag='{ProcTag:s}'
         and t.pfw_attempt_id=i.pfw_attempt_id
         and i.filetype='red_immask'
         and i.filename=fai.filename
         and fai.archive_name='{ArchiveSite:s}'
         and ct.tilename = '{CoaddTile:s}'
         and ((ct.crossra0='N'
-                AND ((i.racmin between ct.racmin and ct.racmax)OR(i.racmax between ct.racmin and ct.racmax))
-                AND ((i.deccmin between ct.deccmin and ct.deccmax)OR(i.deccmax between ct.deccmin and ct.deccmax))
-            )OR(ct.crossra0='Y'
-                AND ((i.racmin between ct.racmin and 360.)OR(i.racmin between 0.0 and ct.racmax)
-                    OR(i.racmax between ct.racmin and 360.)OR(i.racmax between 0.0 and ct.racmax))
-                AND ((i.deccmin between ct.deccmin and ct.deccmax)OR(i.deccmax between ct.deccmin and ct.deccmax))
-            ))"""
+        AND ((i.racmin between ct.racmin and ct.racmax)OR(i.racmax between ct.racmin and ct.racmax))
+        AND ((i.deccmin between ct.deccmin and ct.deccmax)OR(i.deccmax between ct.deccmin and ct.deccmax))
+        )OR(ct.crossra0='Y'
+        AND ((i.racmin between ct.racmin and 360.)OR(i.racmin between 0.0 and ct.racmax)
+        OR(i.racmax between ct.racmin and 360.)OR(i.racmax between 0.0 and ct.racmax))
+        AND ((i.deccmin between ct.deccmin and ct.deccmax)OR(i.deccmax between ct.deccmin and ct.deccmax))
+        ))"""
 
     if verbose > 0:
         print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
@@ -205,8 +205,8 @@ def query_coadd_img_by_fiat(ImgDict, CoaddTile, ProcTag, BandList, ArchiveSite, 
         i.ccdnum as ccdnum,
         i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
         i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
-    FROM {dbSchema:s}image i, {dbSchema:s}file_archive_info fai, {dbSchema:s}proctag t, {FiatTable:s} y
-    WHERE t.tag='{ProcTag:s}'
+        FROM {dbSchema:s}image i, {dbSchema:s}file_archive_info fai, {dbSchema:s}proctag t, {FiatTable:s} y
+        WHERE t.tag='{ProcTag:s}'
         and t.pfw_attempt_id=i.pfw_attempt_id
         and i.filetype='red_immask'
         and i.filename=fai.filename
@@ -290,8 +290,8 @@ def query_coadd_img_from_attempt(ImgDict, attemptID, BandList, ArchiveSite, dbh,
         i.ccdnum as ccdnum,
         i.rac1 as rac1, i.rac2 as rac2, i.rac3 as rac3, i.rac4 as rac4,
         i.decc1 as decc1, i.decc2 as decc2, i.decc3 as decc3, i.decc4 as decc4
-    FROM {dbSchema:s}image i, {dbSchema:s}desfile d, {dbSchema:s}desfile d2, {dbSchema:s}opm_was_derived_from wdf, {dbSchema:s}file_archive_info fai
-    WHERE d.pfw_attempt_id={attemptID:d}
+        FROM {dbSchema:s}image i, {dbSchema:s}desfile d, {dbSchema:s}desfile d2, {dbSchema:s}opm_was_derived_from wdf, {dbSchema:s}file_archive_info fai
+        WHERE d.pfw_attempt_id={attemptID:d}
         and d.filetype='coadd_nwgint'
         and d.id=wdf.child_desfile_id
         and wdf.parent_desfile_id=d2.id
@@ -407,9 +407,9 @@ def query_zeropoint(ImgDict, ZptInfo, ZptSecondary, dbh, dbSchema, verbose=0):
         {ZptData:s}
         i.expnum as expnum,
         i.ccdnum as ccdnum
-    FROM {dbSchema:s}image i, gtt_filename gtt{ZptTable:s}
-    WHERE i.filename=gtt.filename
-       {ZptConstraint:s}
+        FROM {dbSchema:s}image i, gtt_filename gtt{ZptTable:s}
+        WHERE i.filename=gtt.filename
+        {ZptConstraint:s}
         """
 
     if verbose > 0:
@@ -473,9 +473,9 @@ def query_zeropoint(ImgDict, ZptInfo, ZptSecondary, dbh, dbSchema, verbose=0):
             {ZptData:s}
             i.expnum as expnum,
             i.ccdnum as ccdnum
-        FROM {dbSchema:s}image i, gtt_filename gtt{ZptTable:s}
-        WHERE i.filename=gtt.filename
-           {ZptConstraint:s}
+            FROM {dbSchema:s}image i, gtt_filename gtt{ZptTable:s}
+            WHERE i.filename=gtt.filename
+            {ZptConstraint:s}
             """
 
         if verbose > 0:
@@ -554,9 +554,9 @@ def query_blacklist(ImgDict, BlacklistInfo, dbh, dbSchema, verbose=0):
         gtt.filename as filename,
         i.expnum as expnum,
         i.ccdnum as ccdnum
-    FROM {dbSchema:s}image i, gtt_filename gtt
-    WHERE i.filename=gtt.filename
-       {BlacklistConstraint:s}
+        FROM {dbSchema:s}image i, gtt_filename gtt
+        WHERE i.filename=gtt.filename
+        {BlacklistConstraint:s}
         """
 
     if verbose > 0:
@@ -629,14 +629,14 @@ def query_bkg_img(ImgDict, ArchiveSite, dbh, dbSchema, verbose=0):
         k.band as band,
         k.expnum as expnum,
         k.ccdnum as ccdnum
-    FROM {dbSchema:s}image i, {dbSchema:s}image k, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
-    WHERE i.filename=gtt.filename
+        FROM {dbSchema:s}image i, {dbSchema:s}image k, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
+        WHERE i.filename=gtt.filename
         and i.pfw_attempt_id=k.pfw_attempt_id
         and k.filetype='red_bkg'
         and i.ccdnum=k.ccdnum
         and k.filename=fai.filename
         and fai.archive_name='{ArchiveSite:s}'
-    """
+        """
 
     if verbose > 0:
         print("# Executing query to obtain red_bkg images corresponding to the red_immasked images")
@@ -709,14 +709,14 @@ def query_segmap(ImgDict, ArchiveSite, dbh, dbSchema, verbose=0):
         m.band as band,
         m.expnum as expnum,
         m.ccdnum as ccdnum
-    FROM {dbSchema:s}image i, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
-    WHERE i.filename=gtt.filename
+        FROM {dbSchema:s}image i, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
+        WHERE i.filename=gtt.filename
         and i.pfw_attempt_id=m.pfw_attempt_id
         and m.filetype='red_segmap'
         and i.ccdnum=m.ccdnum
         and m.filename=fai.filename
         and fai.archive_name='{ArchiveSite:s}'
-    """
+        """
 
     if verbose > 0:
         print("# Executing query to obtain segmentation map images corresponding to the red_immasked images")
@@ -770,7 +770,7 @@ def query_psfmodel(ImgDict, ArchiveSite, dbh, dbSchema, verbose=0):
     print(f"# Loading GTT_FILENAME table for secondary queries with entries for {len(ImgList):d} images")
     dbh.insert_many('GTT_FILENAME', ['FILENAME'], ImgList)
     #
-    #   Obtain associated segmentation map image (red_segmap).
+    #   Obtain associated PSF model (psfex_model).
     #
     query = f"""SELECT
         i.filename as redfile,
@@ -780,17 +780,89 @@ def query_psfmodel(ImgDict, ArchiveSite, dbh, dbSchema, verbose=0):
         m.band as band,
         m.expnum as expnum,
         m.ccdnum as ccdnum
-    FROM {dbSchema:s}image i, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
-    WHERE i.filename=gtt.filename
+        FROM {dbSchema:s}image i, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
+        WHERE i.filename=gtt.filename
         and i.pfw_attempt_id=m.pfw_attempt_id
         and m.filetype='psfex_model'
         and i.ccdnum=m.ccdnum
         and m.filename=fai.filename
         and fai.archive_name='{ArchiveSite:s}'
-    """
+        """
 
     if verbose > 0:
         print("# Executing query to obtain PSFex models corresponding to the red_immasked images")
+        if verbose == 1:
+            print("# sql = " + " ".join([d.strip() for d in query.split('\n')]))
+        else:
+            print(f"# sql = {query:s}")
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    PsfDict = {}
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        ImgName = rowd['redfile']
+        PsfDict[ImgName] = rowd
+
+    return PsfDict
+
+
+######################################################################################
+def query_PIFFmodel(ImgDict, ArchiveSite, dbh, dbSchema, PIFFtag, verbose=0):
+    """ Query code to obtain PSF Models (PIFF) associated with a set of red_immask images.
+        Use an existing DB connection to execute a query to obtain PIFF PSF model files
+        for an existing set of images.
+
+        Inputs:
+            ImgDict:    Existing ImgDict
+            ArchiveSite: Archive_name
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            PIFFtag:   Proctag that defines a specific afterburner PIFF run.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            PsfDict:   Ouput dictionary of PSF Model files
+    """
+        #
+        #   Prepare GTT_FILENAME table with list of possible inputs
+        #
+    ImgList = []
+    for ImgName in ImgDict:
+        ImgList.append([ImgName])
+
+        #   Setup DB cursor
+    curDB = dbh.cursor()
+        #   Make sure teh GTT_FILENAME table is empty
+    curDB.execute("delete from GTT_FILENAME")
+        #   load img ids into opm_filename_gtt table
+    print(f"# Loading GTT_FILENAME table for secondary queries with entries for {len(ImgList):d} images")
+    dbh.insert_many('GTT_FILENAME', ['FILENAME'], ImgList)
+#
+#   Obtain associated PSF model (psfex_model).
+#
+    query = f"""SELECT
+        d2.filename as redfile,
+        fai.filename as filename,
+        fai.path as path,
+        fai.compression as compression,
+        m.band as band,
+        m.expnum as expnum,
+        m.ccdnum as ccdnum
+        FROM {dbSchema:s}desfile d1, {dbSchema:s}desfile d2, {dbSchema:s}proctag t, {dbSchema:s}opm_was_derived_from wdf, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
+        WHERE d2.filename=gtt.filename
+        and d2.id=wdf.parent_desfile_id
+        and wdf.child_desfile_id=d1.id
+        and d1.filetype='piff_model'
+        and d1.pfw_attempt_id=t.pfw_attempt_id
+        and t.tag='{PIFFtag:s}'
+        and d1.filename=m.filename
+        and d1.id=fai.desfile_id
+        and fai.archive_name='{ArchiveSite:s}'
+        """
+
+    if verbose > 0:
+        print("# Executing query to obtain PIFF PSF models corresponding to the red_immasked images from PROCTAG.TAG={:s}".format(PIFFtag))
         if verbose == 1:
             print("# sql = " + " ".join([d.strip() for d in query.split('\n')]))
         else:
@@ -850,15 +922,15 @@ def query_headfile_from_attempt(ImgDict, attemptID, ArchiveSite, dbh, dbSchema, 
         m.band as band,
         m.expnum as expnum,
         m.ccdnum as ccdnum
-    FROM {dbSchema:s}image i, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
-    WHERE i.filename=gtt.filename
+        FROM {dbSchema:s}image i, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
+        WHERE i.filename=gtt.filename
         and m.pfw_attempt_id={attemptID:d}
         and m.filetype='coadd_head_scamp'
         and i.ccdnum=m.ccdnum
         and i.expnum=m.expnum
         and m.filename=fai.filename
         and fai.archive_name='{ArchiveSite:s}'
-    """
+        """
 
     if verbose > 0:
         print("# Executing query to obtain head files corresponding to the red_immasked images")
@@ -919,14 +991,14 @@ def query_catfinalcut(ImgDict, ArchiveSite, dbh, dbSchema, verbose=0):
         c.band as band,
         c.expnum as expnum,
         c.ccdnum as ccdnum
-    FROM {dbSchema:s}image i, {dbSchema:s}catalog c, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
-    WHERE i.filename=gtt.filename
+        FROM {dbSchema:s}image i, {dbSchema:s}catalog c, {dbSchema:s}file_archive_info fai, GTT_FILENAME gtt
+        WHERE i.filename=gtt.filename
         and i.pfw_attempt_id=c.pfw_attempt_id
         and c.filetype='cat_finalcut'
         and i.ccdnum=c.ccdnum
         and c.filename=fai.filename
         and fai.archive_name='{ArchiveSite:s}'
-    """
+        """
 
     if verbose > 0:
         print("# Executing query to obtain cat_finalcut catalogs corresponding to the red_immasked images")
@@ -984,58 +1056,58 @@ def query_coadd_img_by_extent(ImgDict, CoaddTile, ProcTag, dbh, dbSchema, BandLi
     query1 = f"""select crossra0 from {dbSchema:s}coaddtile_geom where tilename='{CoaddTile:s}'"""
 
     query2a = f"""with ima as
-    (SELECT /*+ materialize */
-         FILENAME, FILETYPE, CROSSRA0, PFW_ATTEMPT_ID, BAND, CCDNUM,
-         RA_CENT, DEC_CENT,
-         (case when image.CROSSRA0='Y' THEN abs(image.RACMAX - (image.RACMIN-360)) ELSE abs(image.RACMAX - image.RACMIN) END) as RA_SIZE_CCD,
-         abs(image.DECCMAX - image.DECCMIN) as DEC_SIZE_CCD
-         FROM {dbSchema:s}image where filetype='red_immask' {BandConstraint:s})
-    SELECT
-     ima.FILENAME as FILENAME,
-     ima.RA_CENT,ima.DEC_CENT,
-     ima.BAND as BAND,
-     tile.RA_CENT as tra_cent,
-     tile.DEC_CENT as tdec_cent,
-     ima.RA_SIZE_CCD,ima.DEC_SIZE_CCD
-    FROM
-     ima, {dbSchema:s}proctag, {dbSchema:s}coaddtile_geom tile
-    WHERE
-     ima.PFW_ATTEMPT_ID = proctag.PFW_ATTEMPT_ID AND
-     proctag.TAG = '{ProcTag:s}' AND
-     tile.tilename = '{CoaddTile:s}' AND
-     (ABS(ima.RA_CENT  -  tile.RA_CENT)  < (0.5*tile.RA_SIZE  + 0.5*ima.RA_SIZE_CCD)) AND
-     (ABS(ima.DEC_CENT -  tile.DEC_CENT) < (0.5*tile.DEC_SIZE + 0.5*ima.DEC_SIZE_CCD))
-     order by ima.RA_CENT
+        (SELECT /*+ materialize */
+        FILENAME, FILETYPE, CROSSRA0, PFW_ATTEMPT_ID, BAND, CCDNUM,
+        RA_CENT, DEC_CENT,
+        (case when image.CROSSRA0='Y' THEN abs(image.RACMAX - (image.RACMIN-360)) ELSE abs(image.RACMAX - image.RACMIN) END) as RA_SIZE_CCD,
+        abs(image.DECCMAX - image.DECCMIN) as DEC_SIZE_CCD
+        FROM {dbSchema:s}image where filetype='red_immask' {BandConstraint:s})
+        SELECT
+        ima.FILENAME as FILENAME,
+        ima.RA_CENT,ima.DEC_CENT,
+        ima.BAND as BAND,
+        tile.RA_CENT as tra_cent,
+        tile.DEC_CENT as tdec_cent,
+        ima.RA_SIZE_CCD,ima.DEC_SIZE_CCD
+        FROM
+        ima, {dbSchema:s}proctag, {dbSchema:s}coaddtile_geom tile
+        WHERE
+        ima.PFW_ATTEMPT_ID = proctag.PFW_ATTEMPT_ID AND
+        proctag.TAG = '{ProcTag:s}' AND
+        tile.tilename = '{CoaddTile:s}' AND
+        (ABS(ima.RA_CENT  -  tile.RA_CENT)  < (0.5*tile.RA_SIZE  + 0.5*ima.RA_SIZE_CCD)) AND
+        (ABS(ima.DEC_CENT -  tile.DEC_CENT) < (0.5*tile.DEC_SIZE + 0.5*ima.DEC_SIZE_CCD))
+        order by ima.RA_CENT
         """
 
 
     query2b = f"""with ima as
-    (SELECT /*+ materialize */
-         i.FILENAME, i.FILETYPE,
-         i.CROSSRA0, i.PFW_ATTEMPT_ID,
-         i.BAND, i.CCDNUM, i.DEC_CENT,
-         (case when i.RA_CENT > 180. THEN i.RA_CENT-360. ELSE i.RA_CENT END) as RA_CENT,
-         (case when i.CROSSRA0='Y' THEN abs(i.RACMAX - (i.RACMIN-360)) ELSE abs(i.RACMAX - i.RACMIN) END) as RA_SIZE_CCD,
-         abs(i.DECCMAX - i.DECCMIN) as DEC_SIZE_CCD
-         FROM {dbSchema:s}image i where i.filetype='red_immask' {BandConstraint:s}),
-    tile as (SELECT /*+ materialize */
-         t.tilename, t.RA_SIZE, t.DEC_SIZE, t.DEC_CENT,
-         (case when (t.CROSSRA0='Y' and t.RA_CENT> 180) THEN t.RA_CENT-360. ELSE t.RA_CENT END) as RA_CENT
-         FROM {dbSchema:s}coaddtile_geom t )
-    SELECT
-         ima.FILENAME,
-         ima.RA_CENT,ima.DEC_CENT,
-         ima.BAND,
-         ima.RA_SIZE_CCD,ima.DEC_SIZE_CCD
-    FROM
-         ima, {dbSchema:s}proctag t, tile
-    WHERE
-         ima.PFW_ATTEMPT_ID = t.PFW_ATTEMPT_ID AND
-         t.TAG = '{ProcTag:s}' AND
-         tile.tilename = '{CoaddTile:s}' AND
-         (ABS(ima.RA_CENT  -  tile.RA_CENT)  < (0.5*tile.RA_SIZE  + 0.5*ima.RA_SIZE_CCD)) AND
-         (ABS(ima.DEC_CENT -  tile.DEC_CENT) < (0.5*tile.DEC_SIZE + 0.5*ima.DEC_SIZE_CCD))
-     order by ima.BAND
+        (SELECT /*+ materialize */
+        i.FILENAME, i.FILETYPE,
+        i.CROSSRA0, i.PFW_ATTEMPT_ID,
+        i.BAND, i.CCDNUM, i.DEC_CENT,
+        (case when i.RA_CENT > 180. THEN i.RA_CENT-360. ELSE i.RA_CENT END) as RA_CENT,
+        (case when i.CROSSRA0='Y' THEN abs(i.RACMAX - (i.RACMIN-360)) ELSE abs(i.RACMAX - i.RACMIN) END) as RA_SIZE_CCD,
+        abs(i.DECCMAX - i.DECCMIN) as DEC_SIZE_CCD
+        FROM {dbSchema:s}image i where i.filetype='red_immask' {BandConstraint:s}),
+        tile as (SELECT /*+ materialize */
+        t.tilename, t.RA_SIZE, t.DEC_SIZE, t.DEC_CENT,
+        (case when (t.CROSSRA0='Y' and t.RA_CENT> 180) THEN t.RA_CENT-360. ELSE t.RA_CENT END) as RA_CENT
+        FROM {dbSchema:s}coaddtile_geom t )
+        SELECT
+        ima.FILENAME,
+        ima.RA_CENT,ima.DEC_CENT,
+        ima.BAND,
+        ima.RA_SIZE_CCD,ima.DEC_SIZE_CCD
+        FROM
+        ima, {dbSchema:s}proctag t, tile
+        WHERE
+        ima.PFW_ATTEMPT_ID = t.PFW_ATTEMPT_ID AND
+        t.TAG = '{ProcTag:s}' AND
+        tile.tilename = '{CoaddTile:s}' AND
+        (ABS(ima.RA_CENT  -  tile.RA_CENT)  < (0.5*tile.RA_SIZE  + 0.5*ima.RA_SIZE_CCD)) AND
+        (ABS(ima.DEC_CENT -  tile.DEC_CENT) < (0.5*tile.DEC_SIZE + 0.5*ima.DEC_SIZE_CCD))
+        order by ima.BAND
         """
 
     #
@@ -1126,45 +1198,45 @@ def query_astref_scampcat(CatDict, CoaddTile, ProcTag, dbh, dbSchema, BandList, 
     #
     query = f"""
         SELECT
-            c.filename as catfile,
-            m.filename as headfile,
-            m.expnum as expnum,
-            m.band as band,
-            listagg(d.ccdnum,',') within group (order by d.ccdnum) as ccdnum
+        c.filename as catfile,
+        m.filename as headfile,
+        m.expnum as expnum,
+        m.band as band,
+        listagg(d.ccdnum,',') within group (order by d.ccdnum) as ccdnum
         FROM
-            {dbSchema:s}miscfile m, {dbSchema:s}catalog c, {dbSchema:s}catalog d, {dbSchema:s}proctag t
+        {dbSchema:s}miscfile m, {dbSchema:s}catalog c, {dbSchema:s}catalog d, {dbSchema:s}proctag t
         WHERE t.tag='{ProcTag:s}'
-            and t.pfw_attempt_id=c.pfw_attempt_id
-            and c.filetype='cat_scamp_full'
-            {BandConstraint:s}
-            and d.pfw_attempt_id=c.pfw_attempt_id
-            and d.filetype='cat_scamp'
-            and c.pfw_attempt_id=m.pfw_attempt_id
-            and m.filetype='head_scamp_full'
-            and m.expnum=c.expnum
-            and m.expnum=d.expnum
-            and exists (
-                SELECT
-                    1
-                FROM
-                    {dbSchema:s}image i, {dbSchema:s}file_archive_info fai, {dbSchema:s}coaddtile_geom ct
-                WHERE i.expnum=c.expnum
-                    AND t.PFW_ATTEMPT_ID=i.PFW_ATTEMPT_ID
-                    AND i.FILETYPE='red_immask'
-                    AND i.FILENAME=fai.FILENAME
-                    AND ct.tilename = '{CoaddTile:s}'
-                    and ((
-                            ct.crossra0='N'
-                            and ((i.RACMIN between ct.racmin and ct.racmax)or(i.racmax between ct.racmin and ct.racmax))
-                            and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
-                        )or(
-                            ct.crossra0='Y'
-                            and ((i.RACMIN between ct.racmin and 360.)or(i.racmin between 0.0 and ct.racmax)
-                            or(i.racmax between ct.racmin and 360.)or(i.racmax between 0.0 and ct.racmax))
-                            and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
-                    ))
-            )
-            group by c.filename,m.filename,m.expnum,m.band """
+        and t.pfw_attempt_id=c.pfw_attempt_id
+        and c.filetype='cat_scamp_full'
+        {BandConstraint:s}
+        and d.pfw_attempt_id=c.pfw_attempt_id
+        and d.filetype='cat_scamp'
+        and c.pfw_attempt_id=m.pfw_attempt_id
+        and m.filetype='head_scamp_full'
+        and m.expnum=c.expnum
+        and m.expnum=d.expnum
+        and exists (
+        SELECT
+        1
+        FROM
+        {dbSchema:s}image i, {dbSchema:s}file_archive_info fai, {dbSchema:s}coaddtile_geom ct
+        WHERE i.expnum=c.expnum
+        AND t.PFW_ATTEMPT_ID=i.PFW_ATTEMPT_ID
+        AND i.FILETYPE='red_immask'
+        AND i.FILENAME=fai.FILENAME
+        AND ct.tilename = '{CoaddTile:s}'
+        and ((
+        ct.crossra0='N'
+        and ((i.RACMIN between ct.racmin and ct.racmax)or(i.racmax between ct.racmin and ct.racmax))
+        and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
+        )or(
+        ct.crossra0='Y'
+        and ((i.RACMIN between ct.racmin and 360.)or(i.racmin between 0.0 and ct.racmax)
+        or(i.racmax between ct.racmin and 360.)or(i.racmax between 0.0 and ct.racmax))
+        and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
+        ))
+        )
+        group by c.filename,m.filename,m.expnum,m.band """
 
     if verbose > 0:
         print("# Executing query to obtain CAT_SCAMP_FULL catalogs")
@@ -1226,35 +1298,35 @@ def query_astref_scampcat_by_fiat(CatDict, CoaddTile, ProcTag, dbh, dbSchema, Ba
     #
     query = f"""
         SELECT
-            c.filename as catfile,
-            m.filename as headfile,
-            m.expnum as expnum,
-            m.band as band,
-            listagg(d.ccdnum,',') within group (order by d.ccdnum) as ccdnum
+        c.filename as catfile,
+        m.filename as headfile,
+        m.expnum as expnum,
+        m.band as band,
+        listagg(d.ccdnum,',') within group (order by d.ccdnum) as ccdnum
         FROM
-            {dbSchema:s}miscfile m, {dbSchema:s}catalog c, {dbSchema:s}catalog d, {dbSchema:s}proctag t
+        {dbSchema:s}miscfile m, {dbSchema:s}catalog c, {dbSchema:s}catalog d, {dbSchema:s}proctag t
         WHERE t.tag='{ProcTag:s}'
-            and t.pfw_attempt_id=c.pfw_attempt_id
-            and c.filetype='cat_scamp_full'
-            {BandConstraint:s}
-            and d.pfw_attempt_id=c.pfw_attempt_id
-            and d.filetype='cat_scamp'
-            and c.pfw_attempt_id=m.pfw_attempt_id
-            and m.filetype='head_scamp_full'
-            and m.expnum=c.expnum
-            and m.expnum=d.expnum
-            and exists (
-                SELECT
-                    1
-                FROM
-                    {dbSchema:s}image i, {FiatTable:s} y
-                WHERE i.expnum=c.expnum
-                    and t.pfw_attempt_id=i.pfw_attempt_id
-                    and i.filetype='red_immask'
-                    and i.filename=y.filename
-                    and y.tilename='{CoaddTile:s}'
-            )
-            group by c.filename,m.filename,m.expnum,m.band """
+        and t.pfw_attempt_id=c.pfw_attempt_id
+        and c.filetype='cat_scamp_full'
+        {BandConstraint:s}
+        and d.pfw_attempt_id=c.pfw_attempt_id
+        and d.filetype='cat_scamp'
+        and c.pfw_attempt_id=m.pfw_attempt_id
+        and m.filetype='head_scamp_full'
+        and m.expnum=c.expnum
+        and m.expnum=d.expnum
+        and exists (
+        SELECT
+        1
+        FROM
+        {dbSchema:s}image i, {FiatTable:s} y
+        WHERE i.expnum=c.expnum
+        and t.pfw_attempt_id=i.pfw_attempt_id
+        and i.filetype='red_immask'
+        and i.filename=y.filename
+        and y.tilename='{CoaddTile:s}'
+        )
+        group by c.filename,m.filename,m.expnum,m.band """
 
     if verbose > 0:
         print("# Executing query to obtain CAT_SCAMP_FULL catalogs")
@@ -1310,37 +1382,37 @@ def query_astref_catfinalcut(CatDict, CoaddTile, ProcTag, dbh, dbSchema, BandLis
     #
     query = f"""
         SELECT
-            c.filename as catfile,
-            c.expnum as expnum,
-            c.ccdnum as ccdnum,
-            c.band as band
+        c.filename as catfile,
+        c.expnum as expnum,
+        c.ccdnum as ccdnum,
+        c.band as band
         FROM
-            {dbSchema:s}catalog c, {dbSchema:s}proctag t
+        {dbSchema:s}catalog c, {dbSchema:s}proctag t
         WHERE t.tag='{ProcTag:s}'
-            and t.pfw_attempt_id=c.pfw_attempt_id
-            and c.filetype='cat_finalcut'
-            {BandConstraint:s}
-            and exists (
-                SELECT
-                    1
-                FROM
-                    {dbSchema:s}image i, {dbSchema:s}coaddtile_geom ct
-                WHERE i.expnum=c.expnum
-                    AND t.PFW_ATTEMPT_ID=i.PFW_ATTEMPT_ID
-                    AND i.FILETYPE='red_immask'
-                    AND ct.tilename = '{CoaddTile:s}'
-                    and ((
-                            ct.crossra0='N'
-                            and ((i.RACMIN between ct.racmin and ct.racmax)or(i.racmax between ct.racmin and ct.racmax))
-                            and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
-                        )or(
-                            ct.crossra0='Y'
-                            and ((i.RACMIN between ct.racmin and 360.)or(i.racmin between 0.0 and ct.racmax)
-                            or(i.racmax between ct.racmin and 360.)or(i.racmax between 0.0 and ct.racmax))
-                            and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
-                    ))
-            )
-            order by c.expnum,c.ccdnum """
+        and t.pfw_attempt_id=c.pfw_attempt_id
+        and c.filetype='cat_finalcut'
+        {BandConstraint:s}
+        and exists (
+        SELECT
+        1
+        FROM
+        {dbSchema:s}image i, {dbSchema:s}coaddtile_geom ct
+        WHERE i.expnum=c.expnum
+        AND t.PFW_ATTEMPT_ID=i.PFW_ATTEMPT_ID
+        AND i.FILETYPE='red_immask'
+        AND ct.tilename = '{CoaddTile:s}'
+        and ((
+        ct.crossra0='N'
+        and ((i.RACMIN between ct.racmin and ct.racmax)or(i.racmax between ct.racmin and ct.racmax))
+        and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
+        )or(
+        ct.crossra0='Y'
+        and ((i.RACMIN between ct.racmin and 360.)or(i.racmin between 0.0 and ct.racmax)
+        or(i.racmax between ct.racmin and 360.)or(i.racmax between 0.0 and ct.racmax))
+        and ((i.deccmin between ct.deccmin and ct.deccmax)or(i.deccmax between ct.deccmin and ct.deccmax))
+        ))
+        )
+        order by c.expnum,c.ccdnum """
 
     if verbose > 0:
         print("# Executing query to obtain CAT_FINALCUT catalogs")
@@ -1402,28 +1474,28 @@ def query_astref_catfinalcut_by_fiat(CatDict, CoaddTile, ProcTag, dbh, dbSchema,
     #
     query = f"""
         SELECT
-            c.filename as catfile,
-            c.expnum as expnum,
-            c.ccdnum as ccdnum,
-            c.band as band
+        c.filename as catfile,
+        c.expnum as expnum,
+        c.ccdnum as ccdnum,
+        c.band as band
         FROM
-            {dbSchema:s}catalog c, {dbSchema:s}proctag t
+        {dbSchema:s}catalog c, {dbSchema:s}proctag t
         WHERE t.tag='{ProcTag:s}'
-            and t.pfw_attempt_id=c.pfw_attempt_id
-            and c.filetype='cat_finalcut'
-            {BandConstraint:s}
-            and exists (
-                SELECT
-                    1
-                FROM
-                    {dbSchema:s}image i, {FiatTable:s} y
-                WHERE i.expnum=c.expnum
-                    and t.pfw_attempt_id=i.pfw_attempt_id
-                    and i.filetype='red_immask'
-                    and i.filename=y.filename
-                    and y.tilename='{CoaddTile:s}'
-            )
-            order by c.expnum,c.ccdnum """
+        and t.pfw_attempt_id=c.pfw_attempt_id
+        and c.filetype='cat_finalcut'
+        {BandConstraint:s}
+        and exists (
+        SELECT
+        1
+        FROM
+        {dbSchema:s}image i, {FiatTable:s} y
+        WHERE i.expnum=c.expnum
+        and t.pfw_attempt_id=i.pfw_attempt_id
+        and i.filetype='red_immask'
+        and i.filename=y.filename
+        and y.tilename='{CoaddTile:s}'
+        )
+        order by c.expnum,c.ccdnum """
 
     if verbose > 0:
         print("# Executing query to obtain CAT_FINALCUT catalogs")
@@ -1480,17 +1552,17 @@ def query_meds_psfmodels(QueryType, CoaddTile, CoaddProcTag, SE_ProcTag, COADD_O
     #   Query to get the MEDS files from a specific tile (also needed as a pre-query when getting PSF Models).
     #
     query = f"""SELECT fai.filename as filename,
-            fai.path as path,
-            fai.compression as compression,
-            m.band as band,
-            m.pfw_attempt_id as pfw_attempt_id
+        fai.path as path,
+        fai.compression as compression,
+        m.band as band,
+        m.pfw_attempt_id as pfw_attempt_id
         FROM {dbSchema:s}proctag t, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai
         WHERE t.tag='{CoaddProcTag:s}'
-            and t.pfw_attempt_id=m.pfw_attempt_id
-            and m.tilename='{CoaddTile:s}'
-            and m.filetype='coadd_meds'
-            and fai.filename=m.filename
-            and fai.archive_name='{ArchiveSite:s}'"""
+        and t.pfw_attempt_id=m.pfw_attempt_id
+        and m.tilename='{CoaddTile:s}'
+        and m.filetype='coadd_meds'
+        and fai.filename=m.filename
+        and fai.archive_name='{ArchiveSite:s}'"""
 
     if verbose > 0:
         print("# Executing query to obtain red_immask images (based on their edges/boundaries)")
@@ -1533,33 +1605,33 @@ def query_meds_psfmodels(QueryType, CoaddTile, CoaddProcTag, SE_ProcTag, COADD_O
         #
         if COADD_ONLY:
             query = f"""SELECT fai.filename as filename,
-                    fai.path as path,
-                    fai.compression as compression,
-                    -9999 as expnum,
-                    -9999 as ccdnum,
-                    m.band as band
+                fai.path as path,
+                fai.compression as compression,
+                -9999 as expnum,
+                -9999 as ccdnum,
+                m.band as band
                 FROM {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai
                 WHERE m.pfw_attempt_id={uAttID[0]:d}
-                    and m.filetype='coadd_psfex_model'
-                    and m.filename=fai.filename
-                    and fai.archive_name='{ArchiveSite:s}'"""
+                and m.filetype='coadd_psfex_model'
+                and m.filename=fai.filename
+                and fai.archive_name='{ArchiveSite:s}'"""
         else:
             query = f"""SELECT fai.filename as filename,
-                    fai.path as path,
-                    fai.compression as compression,
-                    m.expnum as expnum,
-                    m.ccdnum as ccdnum,
-                    m.band as band
+                fai.path as path,
+                fai.compression as compression,
+                m.expnum as expnum,
+                m.ccdnum as ccdnum,
+                m.band as band
                 FROM {dbSchema:s}proctag ts, {dbSchema:s}image i, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai
                 WHERE i.pfw_attempt_id={uAttID[0]:d}
-                    and i.filetype='coadd_nwgint'
-                    and i.ccdnum=m.ccdnum
-                    and i.expnum=m.expnum
-                    and m.filetype='psfex_model'
-                    and m.pfw_attempt_id=ts.pfw_attempt_id
-                    and ts.tag='{SE_ProcTag}'
-                    and m.filename=fai.filename
-                    and fai.archive_name='{ArchiveSite:s}'"""
+                and i.filetype='coadd_nwgint'
+                and i.ccdnum=m.ccdnum
+                and i.expnum=m.expnum
+                and m.filetype='psfex_model'
+                and m.pfw_attempt_id=ts.pfw_attempt_id
+                and ts.tag='{SE_ProcTag}'
+                and m.filename=fai.filename
+                and fai.archive_name='{ArchiveSite:s}'"""
 
         if verbose > 0:
             print("# Executing query to obtain PSF models")

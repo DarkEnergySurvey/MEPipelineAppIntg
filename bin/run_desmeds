@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""
+Wrapper code to execute desmeds-make-meds-desdm (MEDS maker)
+"""
 
 import argparse
 import os
@@ -6,6 +9,7 @@ import sys
 import time
 import subprocess
 import fitsio
+import numpy as np
 from despymisc.miscutils import elapsed_time
 
 import despyastro
@@ -33,7 +37,8 @@ def make_coadd_object_map(args):
     # Get a dbh handle to query
     dbh = desdbi.DesDbi(section=args.db_section, retry=True)
     # Format and query with query2rec
-    QUERY_MAP = f"select OBJECT_NUMBER,ID from {tablename} where FILENAME='{catname}' order by object_number"
+    # RAG updated query to return color information
+    QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color,g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by object_number"
     print("# Will query: ")
     print(QUERY_MAP)
     map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
@@ -41,19 +46,28 @@ def make_coadd_object_map(args):
     # Make sure we get an answer, if no entries found query2rec() will return False
     if map_data is False:
         # Try alt-table
+        print(f"# WARNING: Query to {tablename} returned no objects, cannot create coadd_object map")
         tablename = 'COADD_OBJECT_SAVE'
-        QUERY_MAP = f"select OBJECT_NUMBER,ID from {tablename} where FILENAME='{catname}' order by object_number"
+
+        # QUERY_MAP = "select OBJECT_NUMBER,ID from %s where FILENAME='%s' order by object_number" % (tablename,catname)
+        QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color,g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by object_number"
         print(f"# WARNING: Query to {tablename} returned no objects, cannot create coadd_object map")
         print(f"# Will try now {tablename}")
         print(QUERY_MAP)
         map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
 
         if map_data is False:
-            raise ValueError("ERROR: Query to {tablename} returned no objects, cannot create coadd_object map")
+            raise ValueError(f"ERROR: Query to {tablename} returned no objects, cannot create coadd_object map")
 
         print(f"# Sucessfull query to {tablename}")
     else:
         print(f"# Sucessfull query to {tablename}")
+
+    # Add sentinel values for GI_COLOR for cases where g_mag or i_mag are sentinels
+
+    wsm = np.where(np.logical_or(map_data['G_MAG'] > 98., map_data['I_MAG'] > 98.))
+    print(f"Adding sentinel values for color for {map_data['GI_COLOR'][wsm].size:d} of {map_data['GI_COLOR'].size:d} objects")
+    map_data['GI_COLOR'][wsm] = 99.
 
     # Write a fits file with the record array
     fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS', clobber=True)
