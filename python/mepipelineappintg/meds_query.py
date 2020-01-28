@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 # $Id: meds_query.py 48310 2019-03-01 16:24:53Z rgruendl $
 # $Rev:: 48310                            $:  # Revision of last commit.
 # $LastChangedBy:: rgruendl               $:  # Author of last commit.
@@ -7,16 +6,14 @@
 A set of queries to obtain inputs for the COADD pipeline.
 """
 
-import despydb.desdbi
-
 ######################################################################################
-def query_imgs_from_attempt(attemptID,dbh,dbSchema,verbose=0):
+def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
     """ Query code to obtain image inputs for COADD (based on a previous successful
         mulitepoch/COADD attempt.
 
         Use an existing DB connection to execute a query for RED_IMMASK image
         products that were found previously to overlap a specific COADD tile.
-        Return a dictionary of Images along with with basic properties (expnum, 
+        Return a dictionary of Images along with with basic properties (expnum,
         ccdnum, band, nite).
 
         Inputs:
@@ -30,17 +27,17 @@ def query_imgs_from_attempt(attemptID,dbh,dbSchema,verbose=0):
     """
 #
 #
-    query="""SELECT 
+    query = f"""SELECT
         i.filename as filename,
         fai.path as path,
-        fai.compression as compression, 
+        fai.compression as compression,
         m.filename as headfile,
         i.band as band,
         i.expnum as expnum,
         i.ccdnum as ccdnum,
         j.mag_zero as mag_zero
-    FROM {schema:s}image i, {schema:s}image j, {schema:s}desfile d, {schema:s}desfile d2, {schema:s}opm_was_derived_from wdf, {schema:s}miscfile m, {schema:s}file_archive_info fai
-    WHERE d.pfw_attempt_id={AID:s}
+    FROM {dbSchema:s}image i, {dbSchema:s}image j, {dbSchema:s}desfile d, {dbSchema:s}desfile d2, {dbSchema:s}opm_was_derived_from wdf, {dbSchema:s}miscfile m, {dbSchema:s}file_archive_info fai
+    WHERE d.pfw_attempt_id={attemptID:s}
         and d.filetype='coadd_nwgint'
         and d.id=wdf.child_desfile_id
         and wdf.parent_desfile_id=d2.id
@@ -52,84 +49,80 @@ def query_imgs_from_attempt(attemptID,dbh,dbSchema,verbose=0):
         and m.expnum=i.expnum
         and m.ccdnum=i.ccdnum
         and d.filename=j.filename
-        """.format(
-        schema=dbSchema,
-        AID=attemptID)
+        """
 
-    if (verbose > 0):
+    if verbose > 0:
         print("# Executing query to obtain red_immask images (based on their use in a previous multiepoch attempt)")
-        if (verbose == 1):
-            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
-        if (verbose > 1):
-            print("# sql = {:s}".format(query))
-    curDB=dbh.cursor()
+        if verbose == 1:
+            print(f"# sql = " + ' '.join([d.strip() for d in query.split('\n')]))
+        if verbose > 1:
+            print(f"# sql = {query:s}")
+    curDB = dbh.cursor()
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
-    ImgDict={}
-    HeadDict={}
+    ImgDict = {}
+    HeadDict = {}
     for row in curDB:
         rowd = dict(zip(desc, row))
-        ImgName=rowd['filename']
-        ImgDict[ImgName]={}
-        HeadDict[ImgName]={}
-        for key in ['filename','path','compression','band','expnum','ccdnum']:
-            ImgDict[ImgName][key]=rowd[key]
-        if (rowd['mag_zero'] is not None):
-            ImgDict[ImgName]['mag_zero']=rowd['mag_zero']
-        HeadDict[ImgName]['filename']=rowd['headfile']
-        for key in ['band','expnum','ccdnum']:
-            HeadDict[ImgName][key]=rowd[key]
+        ImgName = rowd['filename']
+        ImgDict[ImgName] = {}
+        HeadDict[ImgName] = {}
+        for key in ['filename', 'path', 'compression', 'band', 'expnum', 'ccdnum']:
+            ImgDict[ImgName][key] = rowd[key]
+        if rowd['mag_zero'] is not None:
+            ImgDict[ImgName]['mag_zero'] = rowd['mag_zero']
+        HeadDict[ImgName]['filename'] = rowd['headfile']
+        for key in ['band', 'expnum', 'ccdnum']:
+            HeadDict[ImgName][key] = rowd[key]
 
 #
 #   Secondary query to get paths for Head Files
 #
-    ImgList=[]
+    ImgList = []
     for ImgName in HeadDict:
         ImgList.append([HeadDict[ImgName]['filename']])
 #   Make sure teh GTT_FILENAME table is empty
     curDB.execute('delete from GTT_FILENAME')
 #   load img ids into opm_filename_gtt table
-    print("# Loading GTT_FILENAME table with headfile names for secondary query to get paths with {:d} images".format(len(ImgList)))
-    dbh.insert_many('GTT_FILENAME',['FILENAME'],ImgList)
+    print(f"# Loading GTT_FILENAME table with headfile names for secondary query to get paths with {len(ImgList):d} images")
+    dbh.insert_many('GTT_FILENAME', ['FILENAME'], ImgList)
 
-    query="""SELECT 
+    query = f"""SELECT
         fai.filename as filename,
         fai.path as path,
         fai.compression as compression
-    FROM {schema:s}file_archive_info fai, gtt_filename g
+    FROM {dbSchema:s}file_archive_info fai, gtt_filename g
     WHERE fai.filename=g.filename
-        """.format(schema=dbSchema)
+        """
 
-    if (verbose > 0):
+    if verbose > 0:
         print("# Executing query to obtain red_immask images (based on their use in a previous multiepoch attempt)")
-        if (verbose == 1):
-            print("# sql = {:s} ".format(" ".join([d.strip() for d in query.split('\n')])))
-        if (verbose > 1):
-            print("# sql = {:s}".format(query))
-    curDB=dbh.cursor()
+        if verbose == 1:
+            print(f"# sql = " + ' '.join([d.strip() for d in query.split('\n')]))
+        if verbose > 1:
+            print(f"# sql = {query:s}")
+    curDB = dbh.cursor()
     curDB.execute(query)
     desc = [d[0].lower() for d in curDB.description]
 
 #
 #   Form a temporary dictionary (tmpDict) with results
 #
-    tmpDict={}
+    tmpDict = {}
     for row in curDB:
         rowd = dict(zip(desc, row))
-        ImgName=rowd['filename']
-        tmpDict[ImgName]=rowd
+        ImgName = rowd['filename']
+        tmpDict[ImgName] = rowd
 
 #
 #   Go through HeadDict and assign path and compression fields from the tmpDict
 #
     for Img in HeadDict:
-        if (HeadDict[Img]['filename'] in tmpDict):
-            HeadDict[Img]['path']=tmpDict[HeadDict[Img]['filename']]['path']
-            HeadDict[Img]['compression']=tmpDict[HeadDict[Img]['filename']]['compression']
+        if HeadDict[Img]['filename'] in tmpDict:
+            HeadDict[Img]['path'] = tmpDict[HeadDict[Img]['filename']]['path']
+            HeadDict[Img]['compression'] = tmpDict[HeadDict[Img]['filename']]['compression']
         else:
-            print("Warning: No entry in FILE_ARCHIVE_INFO found for {:s}".format(HeadDict[Img]['filename']))
+            print(f"Warning: No entry in FILE_ARCHIVE_INFO found for {HeadDict[Img]['filename']:s}")
 
-    return ImgDict,HeadDict
-
-
+    return ImgDict, HeadDict
