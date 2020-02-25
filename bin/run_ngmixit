@@ -38,7 +38,8 @@ if __name__ == "__main__":
     # Get the list of med files
     meds_files = meappintg_tools.read_meds_list(args.meds_list)
 
-    # We need to avoid passing --fof-file if --mof-file is present, it's one or the other
+    # We need to avoid passing --fof-file if --mof-file is present,
+    # it's one or the other
     if '--mof-file' in unknownargs and '--fof-file' in unknownargs:
         print('# "--mof-file" option is present, we will remove "--fof-file" from arguments')
         fof_file_idx = unknownargs.index('--fof-file')
@@ -46,7 +47,8 @@ if __name__ == "__main__":
         unknownargs.remove(fof_file)
         unknownargs.remove('--fof-file')
 
-    # Extract the fof-file, use this method because of the non-standard '--fof-file' argument
+    # Extract the fof-file, use this method because of the non-standard '
+    # --fof-file' argument
     if '--fof-file' in unknownargs:
         fof_file_idx = unknownargs.index('--fof-file')
         fof_file = unknownargs[fof_file_idx + 1]
@@ -64,15 +66,14 @@ if __name__ == "__main__":
     # Add the fof-range to the command line
     unknownargs.insert(0, f"--fof-range {j1},{j2}")
 
-    # Get the seed based on tilename and chunck/wrange and add it to the commandline unknownargs
+    # Get the seed based on tilename and chunck/wrange and add it to
+    # the commandline unknownargs
     seed = meappintg_tools.chunkseed(args.tilename, args.wrange, shift='')
     unknownargs.insert(1, f"--seed {seed}")
-
 
     # And now we append to unknownargs the meds files
     for band in args.bands:
         unknownargs.append(meds_files[band])
-
 
     # Make it a dictionary we can pop items out of it
     dict_args = vars(args)
