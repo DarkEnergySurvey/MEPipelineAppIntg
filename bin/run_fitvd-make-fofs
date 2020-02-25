@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--meds_list", type=str, action="store", default=None, required=True,
                         help="Name of file containing filenames and bands for the input meds")
-    parser.add_argument("--bands", type=str, action="store", default=['g',], required=False, nargs='+',
+    parser.add_argument("--bands", type=str, action="store", default=['g', ], required=False, nargs='+',
                         help="Ordered list of bands to use")
     parser.add_argument("--dryrun", action="store_true", default=False,
                         help="Just print the command to be executed and exit?")
