@@ -6,6 +6,7 @@
 A set of queries to obtain inputs for the COADD pipeline.
 """
 
+# Added comment to test git
 ######################################################################################
 def query_coadd_geometry(TileDict, CoaddTile, dbh, dbSchema, verbose=0):
     """ Query code to obtain COADD tile geometry
