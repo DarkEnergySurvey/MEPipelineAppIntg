@@ -10,9 +10,15 @@ from mepipelineappintg import fitvd_tools
 import despyastro
 from despydb import desdbi
 import fitsio
+import numpy
+import numpy.lib.recfunctions as rfn
 
 EXE = 'shredx'
 
+QUERY_FORMAT = """
+select OBJECT_NUMBER, ID 
+       FROM %s where FILENAME='%s' order by object_number
+""" 
 
 def make_coadd_object_map(args):
 
@@ -25,9 +31,8 @@ def make_coadd_object_map(args):
     # Get a dbh handle to query
     dbh = desdbi.DesDbi(section=args.db_section, retry=True)
     # Format and query with query2rec
-    QUERY_MAP = "select OBJECT_NUMBER, ID from %s where FILENAME='%s' order by object_number" % (tablename,
-                                                                                                 catname)
-    print("# Will query: ")
+    QUERY_MAP = QUERY_FORMAT % (tablename, catname)    
+    print("# Will execute query to map ID to OBJECT_NUMBER: ")
     print(QUERY_MAP)
     map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
 
@@ -38,9 +43,11 @@ def make_coadd_object_map(args):
     else:
         print(f"# Sucessfull query to {tablename}")
 
+    # Rename OBJECT_NUMBER to 'number' for shreder
+    map_data = rfn.rename_fields(map_data, {'OBJECT_NUMBER': 'number',})
     # Write a fits file with the record array
     fitsio.write(args.ids, map_data, extname='OBJECTS', clobber=True)
-    print("# Wrote COADD_OBJECT map to: %s".format(args.ids))
+    print(f"# Wrote COADD_OBJECT map to: {args.ids}")
     return
 
 
@@ -133,7 +140,7 @@ if __name__ == "__main__":
     for key in dict_args:
         if key in ignore_options:
             continue
-        print("# \t--%-10s\t%s".format(key, vars(args)[key]))
+        print(f"# \t--{key} {vars(args)[key]}")
         cmdlist.append("--%s" % key)
         cmdlist.append(dict_args[key])
     # plus the extra args which are directly passed to ngmixit
@@ -152,5 +159,5 @@ if __name__ == "__main__":
         sys.stdout.flush()
         status = subprocess.call(cmd, shell=True)
     # Done
-    print(f"# {EXE} creation time: {elapsed_time(t0)}")
+    print(f"# {EXE} run time: {elapsed_time(t0)}")
     sys.exit(status)

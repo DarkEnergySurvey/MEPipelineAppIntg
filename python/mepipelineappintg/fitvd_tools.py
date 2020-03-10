@@ -30,7 +30,7 @@ def chunkseed(tilename, chunk, shift=''):
 
 def find_number_fof(filename, ext='fofid'):
     fofs = fitsio.read(filename)
-    num = numpy.unique(fofs['fofid']).size
+    num = numpy.unique(fofs[ext]).size
     return num
 
 
