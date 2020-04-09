@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
             if isinstance(value, str):
                 value = f'\'{value}\''
-            tileconfig_output.write(f"{key + ':':-18s} {value}\n")
+            tileconfig_output.write(f"{key + ':':<18s} {value}\n")
 
     print(f"# Wrote yaml configuration to: {tileconf}")
 
