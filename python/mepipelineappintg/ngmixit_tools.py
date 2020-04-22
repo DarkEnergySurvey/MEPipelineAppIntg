@@ -1,11 +1,12 @@
-# Simple set of function to generate global, chunk seeds and other utils for ngmixer
-
-import numpy
+"""
+Simple set of function to generate global, chunk seeds and other utils for ngmixer
+"""
 import re
-import fitsio
 import math
+import numpy
+import fitsio
 
-def get_globalseed(tilename,shift=''):
+def get_globalseed(tilename, shift=''):
 
     """ Go from TILENAME to unique interger by removing all non
     numeric values"""
@@ -13,8 +14,8 @@ def get_globalseed(tilename,shift=''):
     seed = result + shift
     return int(seed)
 
-def chunkseed(tilename,chunk, shift=''):
-    tile_seed = get_globalseed(tilename,shift)
+def chunkseed(tilename, chunk, shift=''):
+    tile_seed = get_globalseed(tilename, shift)
     rng = numpy.random.RandomState(tile_seed)
     k = 1
     while k <= chunk:
@@ -22,7 +23,7 @@ def chunkseed(tilename,chunk, shift=''):
         k = k + 1
     return newseed
 
-def find_number_fof(filename,ext):
+def find_number_fof(filename, ext):
 
     fofs = fitsio.read(filename)
     num = numpy.unique(fofs['fofid']).size
@@ -34,7 +35,7 @@ def find_number_meds(filename):
     num = meds['object_data'].get_nrows()
     return int(num)
 
-def getrange(n,nfof,nranges):
+def getrange(n, nfof, nranges):
 
     chunck_size = math.ceil(float(nfof) / float(nranges))
     chunck_size = int(chunck_size)

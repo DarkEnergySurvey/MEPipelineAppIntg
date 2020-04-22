@@ -1,12 +1,13 @@
-# Simple set of function to generate global,
-# chunk seeds and other utils for ngmixer
+""" Simple set of function to generate global,
+    chunk seeds and other utils for ngmixer
+"""
 
-import numpy
 import re
-import fitsio
 import math
 import os
 import fitvd
+import numpy
+import fitsio
 
 
 def get_globalseed(tilename, shift=''):
@@ -102,22 +103,4 @@ def make_psf_map_files(filename):
 def parse_comma_separated_list(inputlist):
     if inputlist[0].find(',') >= 0:
         return inputlist[0].split(',')
-    else:
-        return inputlist
-
-
-if __name__ == "__main__":
-
-    tilename = 'DES0102+5675'
-    print(tilename, get_globalseed(tilename, '69'))
-    print(tilename, get_globalseed(tilename))
-    tilename = 'DES2302+5675'
-    print(tilename, get_globalseed(tilename, '69'))
-    print(tilename, get_globalseed(tilename))
-
-    print(chunkseed(tilename, 12))
-    print(chunkseed(tilename, 12))
-    print(chunkseed(tilename, 20))
-    print(chunkseed(tilename, 20))
-    print(chunkseed(tilename, 12))
-    # chunkseed(tilename,12)
+    return inputlist
