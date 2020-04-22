@@ -101,6 +101,6 @@ def make_psf_map_files(filename):
 
 
 def parse_comma_separated_list(inputlist):
-    if inputlist[0].find(',') >= 0:
+    if ',' in inputlist[0]:
         return inputlist[0].split(',')
     return inputlist

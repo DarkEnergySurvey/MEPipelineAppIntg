@@ -60,5 +60,4 @@ def read_meds_list(filename):
 def parse_comma_separated_list(inputlist):
     if ',' in inputlist[0]:
         return inputlist[0].split(',')
-    else:
-        return inputlist
+    return inputlist
