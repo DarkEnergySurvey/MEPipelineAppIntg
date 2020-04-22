@@ -196,7 +196,7 @@ test_Y.psf Y
         self.assertEqual(len(res), 5)
         self.assertTrue('2' in res)
         a = ['1', '2', '3']
-        res = ngmt.parse_comma_separated_list(a)
+        res = fvdt.parse_comma_separated_list(a)
         self.assertEqual(res, a)
 
 '''
