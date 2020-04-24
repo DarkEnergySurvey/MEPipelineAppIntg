@@ -314,7 +314,8 @@ port    =   0
 
         with capture_output() as (out, _):
             res = mem.find_tile_attempt('THETILE', 'Y6A1_COADD_INPUT', dbh, '', Timing=True)
-            self.assertEqual(res, 2697325)
+            self.assertTrue(isinstance(res, int))
+            self.assertTrue(res > 0)
             output = out.getvalue().strip()
             self.assertTrue('First attempt' in output)
             self.assertTrue('Found more than' in output)
