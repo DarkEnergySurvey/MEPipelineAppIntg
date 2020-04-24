@@ -10,6 +10,7 @@ from mock import patch, MagicMock
 from contextlib import contextmanager
 from io import StringIO
 import re
+from pathlib import Path
 from collections import OrderedDict
 from astropy.io import fits
 
@@ -19,6 +20,7 @@ sys.modules['fitvd'] = mock.Mock()
 
 import mepipelineappintg.ngmixit_tools as ngmt
 import mepipelineappintg.fitvd_tools as fvdt
+import mepipelineappintg.mepochmisc as mem
 from despydb import desdbi
 
 @contextmanager
@@ -199,10 +201,12 @@ test_Y.psf Y
         res = fvdt.parse_comma_separated_list(a)
         self.assertEqual(res, a)
 
-'''
+
+class TestMepochmisc(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sfile = 'services.ini'
+        cls.files = [cls.sfile]
         open(cls.sfile, 'w').write("""
 
 [db-test]
@@ -218,8 +222,107 @@ port    =   0
 
     @classmethod
     def tearDownClass(cls):
-        os.unlink(cls.sfile)
+        for fl in cls.files:
+            try:
+                os.unlink(fl)
+            except:
+                pass
         MockConnection.destroy()
-'''
+
+    def test_get_tile_info(self):
+        tilename = 'TEST0000+2917'
+        res = mem.get_tile_info({'submit_des_services': self.sfile,
+                                 'submit_des_db_section': 'db-test',
+                                 'tilename': tilename})
+        self.assertEqual(len(res), 11)
+        self.assertEqual(10004, res['tileid'])
+
+    def test_write_textlist(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        dict_input1 = {'f1': {'compression': None,
+                              'filename': 'File1.dat',
+                              'path': 'test/path',
+                              'band': 'r',
+                              'expnum': 100},
+                       'f2': {'compression': '.fz',
+                              'filename': 'test.fits',
+                              'path': 'test/path',
+                              'band': 'g',
+                              'expnum': 101}
+                       }
+        dict_input2 = {'f3': {'compression': '.gz',
+                              'filename': 'testout.dat',
+                              'path': 'test2/path',
+                              'expnum': 102,
+                              'ccdnum': 16}
+                       }
+
+        outfile1 = 'test1.txt'
+        outfile2 = 'test2.txt'
+        self.files.append(outfile1)
+        self.files.append(outfile2)
+
+        self.assertFalse(os.path.exists(outfile1))
+        mem.write_textlist(dbh, dict_input1, outfile1)
+        self.assertTrue(os.path.exists(outfile1))
+        self.assertTrue(Path(outfile1).stat().st_size > 0)
+
+        self.assertFalse(os.path.exists(outfile2))
+        with capture_output() as (out, _):
+            mem.write_textlist(dbh, dict_input2, outfile2, fields=['fullname', 'pexpnum', 'ngmixid'], verb=True)
+            output = out.getvalue().strip()
+            self.assertTrue('Wrote file' in output)
+            self.assertTrue(os.path.exists(outfile2))
+            self.assertTrue(Path(outfile2).stat().st_size > 0)
+
+    def test_get_root_archive(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+
+        res = mem.get_root_archive(dbh)
+        self.assertEqual(res, '/decade/decarchive')
+        with capture_output() as (out, _):
+            res = mem.get_root_archive(dbh,verb=True)
+            output = out.getvalue().strip()
+            self.assertTrue('SELECT' in output)
+
+    def test_find_tile_attempt(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        with capture_output() as (out, _):
+            self.assertIsNone(mem.find_tile_attempt('THETILE2', 'Y6A1_COADD_INPUT', dbh, ''))
+            output = out.getvalue().strip()
+            self.assertTrue('First attempt' in output)
+
+        with capture_output() as (out, _):
+            self.assertIsNone(mem.find_tile_attempt('THETILE2', 'Y6A1_COADD_INPUT', dbh, '', verbose=1))
+            output = out.getvalue().strip()
+            self.assertTrue('First attempt' in output)
+            self.assertTrue('SELECT' in output)
+            self.assertTrue('     ' not in output)
+
+        with capture_output() as (out, _):
+            self.assertIsNone(mem.find_tile_attempt('THETILE2', 'Y6A1_COADD_INPUT', dbh, '', verbose=2))
+            output = out.getvalue().strip()
+            self.assertTrue('First attempt' in output)
+            self.assertTrue('SELECT' in output)
+            self.assertTrue('     ' in output)
+
+        with capture_output() as (out, _):
+            self.assertIsNone(mem.find_tile_attempt('THETILE2', 'Y6A1_COADD_INPUT', dbh, '', Timing=True))
+            output = out.getvalue().strip()
+            self.assertTrue('First attempt' in output)
+            self.assertTrue('execution time' in output)
+
+        with capture_output() as (out, _):
+            res = mem.find_tile_attempt('THETILE', 'Y6A1_COADD_INPUT', dbh, '', Timing=True)
+            self.assertEqual(res, 2697325)
+            output = out.getvalue().strip()
+            self.assertTrue('First attempt' in output)
+            self.assertTrue('Found more than' in output)
+
+        res = mem.find_tile_attempt('THETILE', 'TEST_COADD', dbh, '', Timing=True)
+        self.assertEqual(res, 512)
+
+
+
 if __name__ == '__main__':
     unittest.main()
