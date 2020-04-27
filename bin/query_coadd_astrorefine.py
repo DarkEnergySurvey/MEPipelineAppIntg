@@ -14,7 +14,7 @@ verbose = 0
 
 ######################################################################################
 
-if __name__ == "__main__":
+def main():
 
     import argparse
     import os
@@ -150,3 +150,6 @@ if __name__ == "__main__":
     #   Close up shop.
 
     exit(0)
+
+if __name__ == "__main__":
+    main()

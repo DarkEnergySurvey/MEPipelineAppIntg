@@ -11,7 +11,7 @@ verbose = 0
 
 ######################################################################################
 
-if __name__ == "__main__":
+def main():
 
     import argparse
     import os
@@ -399,3 +399,7 @@ if __name__ == "__main__":
             mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, fields=['fullname', 'band'], verb=args.verbose)
 
     exit()
+
+
+if __name__ == "__main__":
+    main()

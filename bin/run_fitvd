@@ -10,7 +10,7 @@ from mepipelineappintg import meappintg_tools
 EXE = 'fitvd'
 THRESHOLD = 4
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser(description="Define the inputs for ngmixit and run")
 
@@ -113,3 +113,6 @@ if __name__ == "__main__":
     # Done
     print(f"# {EXE} creation time: {elapsed_time(t0)}")
     sys.exit(status)
+
+if __name__ == "__main__":
+    main()

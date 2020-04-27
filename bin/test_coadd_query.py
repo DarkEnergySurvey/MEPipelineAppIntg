@@ -13,8 +13,7 @@ verbose = 0
 
 ######################################################################################
 
-if __name__ == "__main__":
-
+def main():
     import argparse
     import os
     import despydb.desdbi
@@ -257,3 +256,6 @@ if __name__ == "__main__":
                     print(" Extra?  {:s}".format(Img))
 
     dbh.close()
+
+if __name__ == "__main__":
+    main()

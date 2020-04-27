@@ -9,7 +9,7 @@ from mepipelineappintg import meappintg_tools
 
 EXE = 'ngmixit'
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser(description="Define the inputs for ngmixit and run")
 
@@ -104,3 +104,6 @@ if __name__ == "__main__":
     # Done
     print(f"# NGMIXIT creation time: {elapsed_time(t0)}")
     sys.exit(status)
+
+if __name__ == "__main__":
+    main()

@@ -11,7 +11,7 @@ verbose = 0
 
 ######################################################################################
 
-if __name__ == "__main__":
+def main():
 
     import argparse
     import os
@@ -445,3 +445,7 @@ if __name__ == "__main__":
             print(f"Option --no_MEDs precludes search for PSF models.  Skipping write for --psf_list {args.psf_list:s}")
 
     exit()
+
+
+if __name__ == "__main__":
+    main()

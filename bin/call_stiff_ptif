@@ -84,7 +84,7 @@ def build_call(bandanames, maxlevels, **kwargs):
         os.system(cmd_exe)
 
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser(description="Call stiff for ptif creatio for the Multi-epoch pipeline")
     parser.add_argument("bandlist", action="store", default=None,
@@ -119,3 +119,7 @@ if __name__ == "__main__":
 
     # Done
     print(f"# Stiff PTIF creation time: {elapsed_time(t0)}")
+
+
+if __name__ == "__main__":
+    main()

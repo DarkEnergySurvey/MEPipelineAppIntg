@@ -9,7 +9,7 @@ from mepipelineappintg import meappintg_tools
 
 EXE = 'fitvd-make-fofs'
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser(description="Define the inputs for fitvd and run")
 
@@ -63,3 +63,6 @@ if __name__ == "__main__":
     # Done
     print(f"# {EXE} elapsed time: {elapsed_time(t0)}")
     sys.exit(status)
+
+if __name__ == "__main__":
+    main()

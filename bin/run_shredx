@@ -16,9 +16,9 @@ import numpy.lib.recfunctions as rfn
 EXE = 'shredx'
 
 QUERY_FORMAT = """
-select OBJECT_NUMBER, ID 
+select OBJECT_NUMBER, ID
        FROM %s where FILENAME='%s' order by object_number
-""" 
+"""
 
 def make_coadd_object_map(args):
 
@@ -31,7 +31,7 @@ def make_coadd_object_map(args):
     # Get a dbh handle to query
     dbh = desdbi.DesDbi(section=args.db_section, retry=True)
     # Format and query with query2rec
-    QUERY_MAP = QUERY_FORMAT % (tablename, catname)    
+    QUERY_MAP = QUERY_FORMAT % (tablename, catname)
     print("# Will execute query to map ID to OBJECT_NUMBER: ")
     print(QUERY_MAP)
     map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
@@ -51,7 +51,7 @@ def make_coadd_object_map(args):
     return
 
 
-if __name__ == "__main__":
+def main():
 
     parser = argparse.ArgumentParser(description="Define the inputs for ngmixit and run")
 
@@ -161,3 +161,6 @@ if __name__ == "__main__":
     # Done
     print(f"# {EXE} run time: {elapsed_time(t0)}")
     sys.exit(status)
+
+if __name__ == "__main__":
+    main()
