@@ -21,6 +21,8 @@ sys.modules['fitvd'] = mock.Mock()
 import mepipelineappintg.ngmixit_tools as ngmt
 import mepipelineappintg.fitvd_tools as fvdt
 import mepipelineappintg.mepochmisc as mem
+import mepipelineappintg.meds_query as mq
+import mepipelineappintg.meappintg_tools as met
 from despydb import desdbi
 
 @contextmanager
@@ -324,6 +326,152 @@ port    =   0
         self.assertEqual(res, 512)
 
 
+class TestMeds_query(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.sfile = 'services.ini'
+        cls.files = [cls.sfile]
+        open(cls.sfile, 'w').write("""
+
+[db-test]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   test
+port    =   0
+""")
+        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
+
+    @classmethod
+    def tearDownClass(cls):
+        for fl in cls.files:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        MockConnection.destroy()
+
+    def test_query_imgs_from_attempt(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        with capture_output() as (out, _):
+            imd, hd = mq.query_imgs_from_attempt('2309774', dbh, '')
+            output = out.getvalue().strip()
+            self.assertTrue('No entry' in output)
+            self.assertEqual(len(imd), len(hd))
+            self.assertEqual(len(imd), 422)
+            count = 0
+            for img in hd.keys():
+                if 'path' not in hd[img]:
+                    count += 1
+            self.assertEqual(count, 1)
+
+        with capture_output() as (out, _):
+            imd, hd = mq.query_imgs_from_attempt('2309774', dbh, '', verbose=1)
+            output = out.getvalue().strip()
+            self.assertTrue('sql =' in output)
+
+        with capture_output() as (out, _):
+            imd, hd = mq.query_imgs_from_attempt('2309774', dbh, '', verbose=2)
+            output = out.getvalue().strip()
+            self.assertTrue('sql =' in output)
+
+class TestMeappintgTools(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.fname = 'meds.list'
+        open(cls.fname, 'w').write("""# filename  band
+test_r.meds r
+test_Y.meds Y
+""")
+        cls.pfname = 'psf.list'
+        open(cls.pfname, 'w').write("""# filename(s)   band
+test_r.psf test2_r.psf r
+test_Y.psf Y
+""")
+        cls.files = [cls.fname, cls.pfname]
+
+
+    @classmethod
+    def tearDownClass(cls):
+        for i in cls.files:
+            try:
+                os.unlink(i)
+            except:
+                pass
+
+    def test_get_globalseed(self):
+        tid = 996644
+        tilename = f'DES-{tid:08d}'
+        res = met.get_globalseed(tilename)
+        self.assertTrue(isinstance(res, int))
+        self.assertEqual(tid, res)
+
+        tilename = f'DES-{tid:d}-A'
+        res = met.get_globalseed(tilename)
+        self.assertTrue(isinstance(res, int))
+        self.assertEqual(tid, res)
+
+        res = met.get_globalseed(tilename, '0')
+        self.assertTrue(isinstance(res, int))
+        self.assertEqual(tid * 10, res)
+
+    def test_chunkseed(self):
+        tilename = 'DES-1234886'
+        self.assertTrue(isinstance(met.chunkseed(tilename, 10), int))
+        self.assertTrue(isinstance(met.chunkseed(tilename, 10, '5'), int))
+        self.assertTrue(isinstance(met.chunkseed(tilename, 1000), int))
+
+    def test_find_number_fof(self):
+        with patch('mepipelineappintg.meappintg_tools.fitsio.read', return_value={'fofid': [1,1,3,4,8,3]}):
+            res = met.find_number_fof(None, None)
+            self.assertEqual(res, 4)
+
+    def test_find_number_meds(self):
+        with patch('mepipelineappintg.meappintg_tools.fitsio.FITS', return_value={'object_data': Junk()}):
+            res = met.find_number_meds(None)
+            self.assertEqual(res, 1001)
+
+    def test_getrange(self):
+        self.assertEqual((12, 5), met.getrange(5, 6, 2))
+        self.assertEqual((4, 4), met.getrange(5, 6, 7))
+
+    def test_read_meds_list(self):
+        res = met.read_meds_list(self.fname)
+        self.assertTrue('r' in res.keys())
+        self.assertTrue('Y' in res.keys())
+        self.assertEqual('test_r.meds', res['r'])
+
+    def test_parse_comma_separated_list(self):
+        a = ['1,2,3,4,5', 9, 0]
+        res = met.parse_comma_separated_list(a)
+        self.assertEqual(len(res), 5)
+        self.assertTrue('2' in res)
+        a = ['1', '2', '3']
+        res = met.parse_comma_separated_list(a)
+        self.assertEqual(res, a)
+
+    def test_getrange_dynamical(self):
+        with patch('mepipelineappintg.meappintg_tools.fitsio.read', return_value={'fofid': [1,1,3,4,8,3]}):
+            with patch('mepipelineappintg.meappintg_tools.fitvd.split.get_splits_variable_fixnum', return_value=[[1, 2], [3, 4], [5, 6]]):
+                res = fvdt.getrange_dynamical(2, None, None, None)
+                self.assertEqual(res, (3, 4))
+
+    def test_read_psf_list(self):
+        res = met.read_psf_list(self.pfname)
+        self.assertTrue('r' in res.keys())
+        self.assertTrue('Y' in res.keys())
+        self.assertTrue('test_r.psf' in res['r'][0])
+        self.assertTrue('test2_r.psf' in res['r'][0])
+
+    def test_make_psf_map_files(self):
+        res = met.make_psf_map_files(self.pfname)
+        self.assertTrue('r' in res.keys())
+        self.assertTrue('Y' in res.keys())
+        for fl in res.values():
+            self.assertTrue(os.path.isfile(fl))
+            self.files.append(fl)
 
 if __name__ == '__main__':
     unittest.main()

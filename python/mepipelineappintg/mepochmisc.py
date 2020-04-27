@@ -1,7 +1,5 @@
-# $Id: mepochmisc.py 48316 2019-03-01 20:00:27Z rgruendl $
-# $Rev:: 48316                            $:  # Revision of last commit.
-# $LastChangedBy:: rgruendl               $:  # Author of last commit.
-
+""" Misc functions
+"""
 import os
 import time
 from despydb import desdbi

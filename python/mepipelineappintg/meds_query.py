@@ -1,7 +1,3 @@
-# $Id: meds_query.py 48310 2019-03-01 16:24:53Z rgruendl $
-# $Rev:: 48310                            $:  # Revision of last commit.
-# $LastChangedBy:: rgruendl               $:  # Author of last commit.
-# $LastCha
 """
 A set of queries to obtain inputs for the COADD pipeline.
 """
