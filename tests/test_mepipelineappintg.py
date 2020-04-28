@@ -23,6 +23,7 @@ import mepipelineappintg.fitvd_tools as fvdt
 import mepipelineappintg.mepochmisc as mem
 import mepipelineappintg.meds_query as mq
 import mepipelineappintg.meappintg_tools as met
+import mepipelineappintg.coadd_query as cq
 from despydb import desdbi
 
 @contextmanager
@@ -472,6 +473,119 @@ test_Y.psf Y
         for fl in res.values():
             self.assertTrue(os.path.isfile(fl))
             self.files.append(fl)
+
+class TestCoaddQuery(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.sfile = 'services.ini'
+        cls.files = [cls.sfile]
+        open(cls.sfile, 'w').write("""
+
+[db-test]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   test
+port    =   0
+""")
+        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
+
+    @classmethod
+    def tearDownClass(cls):
+        for fl in cls.files:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        MockConnection.destroy()
+
+    def test_query_coadd_geometry(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        tiles = ['TEST1112+3000', 'TEST1115+3000']
+        tileDict = {}
+        tileDict = cq.query_coadd_geometry(tileDict, tiles[0], dbh, '')
+        self.assertEqual(len(tileDict), 1)
+        self.assertTrue(tiles[0] in tileDict)
+        self.assertTrue('ra_cent' in tileDict[tiles[0]])
+
+        with capture_output() as (out, _):
+            tileDict = cq.query_coadd_geometry(tileDict, tiles[1], dbh, '', verbose=1)
+            self.assertEqual(len(tileDict), 2)
+            self.assertTrue(tiles[1] in tileDict)
+            self.assertTrue('ra_cent' in tileDict[tiles[1]])
+            output = out.getvalue()
+            self.assertTrue('sql' in output)
+            self.assertTrue('SELECT' in output)
+
+        with capture_output() as (out, _):
+            tileDict = cq.query_coadd_geometry(tileDict, tiles[0], dbh, '', verbose=2)
+            self.assertEqual(len(tileDict), 2)
+            self.assertTrue(tiles[0] in tileDict)
+            self.assertTrue('ra_cent' in tileDict[tiles[0]])
+            output = out.getvalue()
+            self.assertFalse('sql' in output)
+            self.assertTrue('SELECT' in output)
+
+    def test_query_coadd_img_by_edges(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = None
+        with capture_output() as (out, _):
+            zres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', dbh, '', verbose=2)
+            self.assertTrue(len(zres) > 0)
+            key = list(zres.keys())[0]
+            self.assertTrue('filename' in zres[key])
+            self.assertEqual('z', zres[key]['band'])
+            output = out.getvalue().strip()
+            self.assertTrue("Post query constraint" in output)
+
+        with capture_output() as (out, _):
+            res2 = cq.query_coadd_img_by_edges(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', dbh, '', verbose=1)
+            self.assertEqual(res2, zres)
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_by_edges(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['Y'], 'desar2home', dbh, '')
+        gres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g'], 'desar2home', dbh, '')
+        ires = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['i'], 'desar2home', dbh, '')
+        rres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['r'], 'desar2home', dbh, '')
+
+        merged = {**zres, **gres, **ires, **rres}
+
+        res = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g','r','i','z','Y'], 'desar2home', dbh, '')
+
+        self.assertDictEqual(merged, res)
+
+    def test_query_coadd_img_by_fiat(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = None
+        with capture_output() as (out, _):
+            zres = cq.query_coadd_img_by_fiat({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', 'testfiat', dbh, '', verbose=2)
+            self.assertEqual(len(zres), 100)
+            key = list(zres.keys())[0]
+            self.assertTrue('filename' in zres[key])
+            self.assertEqual('z', zres[key]['band'])
+            output = out.getvalue().strip()
+            self.assertTrue("Post query constraint" in output)
+
+        with capture_output() as (out, _):
+            res2 = cq.query_coadd_img_by_fiat(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', 'testfiat', dbh, '', verbose=1)
+            self.assertEqual(res2, zres)
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_by_fiat(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['Y'], 'desar2home', 'testfiat', dbh, '')
+        gres = cq.query_coadd_img_by_fiat({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g'], 'desar2home', 'testfiat', dbh, '')
+        ires = cq.query_coadd_img_by_fiat({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['i'], 'desar2home', 'testfiat', dbh, '')
+        rres = cq.query_coadd_img_by_fiat({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['r'], 'desar2home', 'testfiat', dbh, '')
+
+        merged = {**zres, **gres, **ires, **rres}
+
+        res = cq.query_coadd_img_by_fiat({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g','r','i','z','Y'], 'desar2home', 'testfiat', dbh, '')
+
+        self.assertDictEqual(merged, res)
+
 
 if __name__ == '__main__':
     unittest.main()
