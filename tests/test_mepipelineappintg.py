@@ -618,40 +618,90 @@ port    =   0
     def test_query_zeropoint(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
         zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        print(len(zres))
         zdict = {'table': 'ZEROPOINT',
                  'source': 'PGCM_FORCED'
                  }
+        zdict2 = {'source': 'FGCM'}
                  #'version': None,
                  #'flag': None}
 
-        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        #zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zres['D00617212_z_c58_r2989p02_immasked.fits']['mag_zero'] = None
         with capture_output() as (out, _):
             zpr = cq.query_zeropoint(zres, zdict, None, dbh, '', verbose=2)
             self.assertTrue(len(zres) > len(zpr))
             output = out.getvalue().strip()
             self.assertTrue('sql' in output)
-        zdict['source'] = 'FGCM'
-        with capture_output() as (out, _):
-            zpr = cq.query_zeropoint(zres, zdict, None, dbh, '', verbose=1)
-            self.assertEqual(len(zres), len(zpr))
-            output = out.getvalue().strip()
-            self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '')
+        self.assertEqual(len(zres), len(zpr))
 
         del zdict['source']
-        zdict['flag'] = 1
+        del zdict2['source']
+        zdict['flag'] = 0
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
         zpr = cq.query_zeropoint(zres, zdict, None, dbh, '')
+        print(len(zpr))
+        self.assertTrue(len(zres) > len(zpr))
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '')
         self.assertEqual(len(zres), len(zpr))
 
         del zdict['flag']
-        zdict['version'] = 'y4a1_v1.5'
+        zdict['version'] = '0.0'
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
         zpr = cq.query_zeropoint(zres, zdict, None, dbh, '')
+        self.assertTrue(len(zres) > len(zpr))
+        #zdict2['version'] = 'y4a1_v1.5'
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '')
         self.assertEqual(len(zres), len(zpr))
 
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        self.assertRaises(KeyError, cq.query_zeropoint, zres, None, None, dbh, '')
+        #self.assertEqual(len(zres), len(zpr))
 
+    def test_query_bkg_img(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            zb = cq.query_bkg_img(zres, 'desar2home', dbh, '', verbose=2)
+            self.assertEqual(len(zres), len(zb))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
 
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            zb = cq.query_bkg_img(zres, 'desar2home', dbh, '', verbose=1)
+            self.assertEqual(len(zres), len(zb))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
 
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zb = cq.query_bkg_img(zres, 'desar2home', dbh, '')
+        self.assertEqual(len(zres), len(zb))
 
+    def test_query_segmap(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            zb = cq.query_segmap(zres, 'desar2home', dbh, '', verbose=2)
+            self.assertEqual(len(zres), len(zb))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
 
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            zb = cq.query_segmap(zres, 'desar2home', dbh, '', verbose=1)
+            self.assertEqual(len(zres), len(zb))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zb = cq.query_segmap(zres, 'desar2home', dbh, '')
+        self.assertEqual(len(zres), len(zb))
 
 
 if __name__ == '__main__':
