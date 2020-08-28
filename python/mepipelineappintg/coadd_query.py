@@ -363,17 +363,17 @@ def query_zeropoint(ImgDict, ZptInfo, ZptSecondary, dbh, dbSchema, verbose=0):
 
         ZptSrcConstraint = ''
         if 'source' in ZptInfo:
-            ZptSrcConstraint = f"and z.source='{ZptInfo['source']}'"
+            ZptSrcConstraint = f" and z.source='{ZptInfo['source']}'"
 
         ZptVerConstraint = ''
         if 'version' in ZptInfo:
-            ZptVerConstraint = f"and z.version='{ZptInfo['version']}'"
+            ZptVerConstraint = f" and z.version='{ZptInfo['version']}'"
 
         ZptFlagConstraint = ''
         if 'flag' in ZptInfo:
-            ZptFlagConstraint = f"and z.flag<{ZptInfo['flag']}"
+            ZptFlagConstraint = f" and z.flag<{ZptInfo['flag']}"
 
-        ZptConstraint = f"""and z.imagename=i.filename and z.mag_zero>-100. {ZptSrcConstraint} {ZptVerConstraint} {ZptFlagConstraint}"""
+        ZptConstraint = f"""and z.imagename=i.filename and z.mag_zero>-100.{ZptSrcConstraint}{ZptVerConstraint}{ZptFlagConstraint}"""
 
     #
     #   Prepare GTT_FILENAME table with list of possible inputs
@@ -433,16 +433,16 @@ def query_zeropoint(ImgDict, ZptInfo, ZptSecondary, dbh, dbSchema, verbose=0):
         ZptData = 'z.mag_zero as mag_zero,'
         ZptSrcConstraint = ''
         if 'source' in ZptSecondary:
-            ZptSrcConstraint = f"and z.source='{ZptSecondary['source']}'"
+            ZptSrcConstraint = f" and z.source='{ZptSecondary['source']}'"
 
         ZptVerConstraint = ''
         if 'version' in ZptSecondary:
-            ZptVerConstraint = f"and z.version='{ZptSecondary['version']}'"
+            ZptVerConstraint = f" and z.version='{ZptSecondary['version']}'"
 
         ZptFlagConstraint = ''
         if 'flag' in ZptSecondary:
-            ZptFlagConstraint = f"and z.flag<{ZptSecondary['flag']:s}"
-        ZptConstraint = f"""and z.imagename=i.filename and z.mag_zero>-100. {ZptSrcConstraint} {ZptVerConstraint} {ZptFlagConstraint}"""
+            ZptFlagConstraint = f" and z.flag<{ZptSecondary['flag']}"
+        ZptConstraint = f"""and z.imagename=i.filename and z.mag_zero>-100.{ZptSrcConstraint}{ZptVerConstraint}{ZptFlagConstraint}"""
 
         #
         #       Prepare GTT_FILENAME table with list of possible inputs
