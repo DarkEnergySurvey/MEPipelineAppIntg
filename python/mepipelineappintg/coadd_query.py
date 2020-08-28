@@ -371,7 +371,7 @@ def query_zeropoint(ImgDict, ZptInfo, ZptSecondary, dbh, dbSchema, verbose=0):
 
         ZptFlagConstraint = ''
         if 'flag' in ZptInfo:
-            ZptFlagConstraint = f"and z.flag<{ZptInfo['flag']:s}"
+            ZptFlagConstraint = f"and z.flag<{ZptInfo['flag']}"
 
         ZptConstraint = f"""and z.imagename=i.filename and z.mag_zero>-100. {ZptSrcConstraint} {ZptVerConstraint} {ZptFlagConstraint}"""
 

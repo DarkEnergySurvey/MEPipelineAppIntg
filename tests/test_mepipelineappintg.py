@@ -586,6 +586,73 @@ port    =   0
 
         self.assertDictEqual(merged, res)
 
+    def test_query_coadd_img_from_attempt(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = None
+        with capture_output() as (out, _):
+            zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '', verbose=2)
+            self.assertEqual(len(zres), 94)
+            key = list(zres.keys())[0]
+            self.assertTrue('filename' in zres[key])
+            self.assertEqual('z', zres[key]['band'])
+            output = out.getvalue().strip()
+            self.assertTrue("Post query constraint" in output)
+
+        with capture_output() as (out, _):
+            res2 = cq.query_coadd_img_from_attempt(zres, 2309774, ['z'], 'desar2home', dbh, '', verbose=1)
+            self.assertEqual(res2, zres)
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_from_attempt(zres, 2309774, ['Y'], 'desar2home', dbh, '')
+        gres = cq.query_coadd_img_from_attempt({}, 2309774, ['g'], 'desar2home', dbh, '')
+        ires = cq.query_coadd_img_from_attempt({}, 2309774, ['i'], 'desar2home', dbh, '')
+        rres = cq.query_coadd_img_from_attempt({}, 2309774, ['r'], 'desar2home', dbh, '')
+
+        merged = {**zres, **gres, **ires, **rres}
+
+        res = cq.query_coadd_img_from_attempt({}, 2309774, ['g','r','i','z','Y'], 'desar2home', dbh, '')
+
+        self.assertDictEqual(merged, res)
+
+    def test_query_zeropoint(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zdict = {'table': 'ZEROPOINT',
+                 'source': 'PGCM_FORCED'
+                 }
+                 #'version': None,
+                 #'flag': None}
+
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            zpr = cq.query_zeropoint(zres, zdict, None, dbh, '', verbose=2)
+            self.assertTrue(len(zres) > len(zpr))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+        zdict['source'] = 'FGCM'
+        with capture_output() as (out, _):
+            zpr = cq.query_zeropoint(zres, zdict, None, dbh, '', verbose=1)
+            self.assertEqual(len(zres), len(zpr))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        del zdict['source']
+        zdict['flag'] = 1
+        zpr = cq.query_zeropoint(zres, zdict, None, dbh, '')
+        self.assertEqual(len(zres), len(zpr))
+
+        del zdict['flag']
+        zdict['version'] = 'y4a1_v1.5'
+        zpr = cq.query_zeropoint(zres, zdict, None, dbh, '')
+        self.assertEqual(len(zres), len(zpr))
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
