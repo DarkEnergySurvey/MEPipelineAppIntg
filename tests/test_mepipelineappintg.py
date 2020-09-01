@@ -788,6 +788,34 @@ port    =   0
         zb = cq.query_catfinalcut(zres, 'desar2home', dbh, '')
         self.assertEqual(len(zres), len(zb))
 
+    def coadd_img_by_extent(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            ze = cq.query_coadd_img_by_extent(zres, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '',['z'], verbose=2)
+            self.assertEqual(len(zres), len(ze))
+            count = 0
+            for v in ze.values():
+                if 'ra_cent' in v.keys():
+                    count += 1
+            self.assertEqual(1, count)
+
+        with capture_output() as (out, _):
+            ze = cq.query_coadd_img_by_extent(zres, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '',['z'], verbose=1)
+            self.assertEqual(len(zres), len(ze))
+            count = 0
+            for v in ze.values():
+                if 'ra_cent' in v.keys():
+                    count += 1
+            self.assertEqual(1, count)
+
+        ze = cq.query_coadd_img_by_extent(zres, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '',['z'], verbose=2)
+        self.assertEqual(len(zres), len(ze))
+        count = 0
+        for v in ze.values():
+            if 'ra_cent' in v.keys():
+                count += 1
+        self.assertEqual(1, count)
 
 if __name__ == '__main__':
     unittest.main()
