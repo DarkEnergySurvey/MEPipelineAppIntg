@@ -788,7 +788,7 @@ port    =   0
         zb = cq.query_catfinalcut(zres, 'desar2home', dbh, '')
         self.assertEqual(len(zres), len(zb))
 
-    def coadd_img_by_extent(self):
+    def test_coadd_img_by_extent(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
         zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
         with capture_output() as (out, _):
