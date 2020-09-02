@@ -527,7 +527,7 @@ def query_blacklist(ImgDict, BlacklistInfo, dbh, dbSchema, verbose=0):
     #
     #    BlacklistTable=''
     BlacklistConstraint = ''
-    if BlacklistInfo is not None:
+    if BlacklistInfo:
         BlacklistConstraint = f"""and not exists (select bl.reason from {BlacklistInfo['table']} bl where bl.expnum=i.expnum and bl.ccdnum=i.ccdnum)"""
 
     #
