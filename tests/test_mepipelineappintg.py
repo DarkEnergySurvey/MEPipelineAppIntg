@@ -855,6 +855,48 @@ port    =   0
 
         za = cq.query_astref_scampcat_by_fiat({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'], 'SCAMPCAT_FIAT', verbose=1)
         self.assertEqual(1, len(za))
+        curs.execute("rollback")
+
+    def test_query_astref_catfinalcut(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        with capture_output() as (out, _):
+            za = cq.query_astref_catfinalcut({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'], verbose=2)
+            self.assertEqual(1, len(za))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        with capture_output() as (out, _):
+            za = cq.query_astref_catfinalcut({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'], verbose=1)
+            self.assertEqual(1, len(za))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        za = cq.query_astref_catfinalcut({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'])
+        self.assertEqual(1, len(za))
+
+    def test_query_astref_catfinalcut_by_fiat(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        curs = dbh.cursor()
+        curs.execute("""CREATE TABLE SCAMPCAT_FIAT ("FILENAME" TEXT NOT NULL, "TILENAME" TEXT NOT NULL, PRIMARY KEY ("FILENAME"))""")
+        za = cq.query_astref_catfinalcut_by_fiat({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'], 'SCAMPCAT_FIAT', verbose=1)
+        self.assertEqual(0, len(za))
+        curs.execute("INSERT INTO SCAMPCAT_FIAT (FILENAME, TILENAME) VALUES ('D00397535_z_c58_r3496p01_immasked.fits', 'DES1002+0126')")
+        with capture_output() as (out, _):
+            za = cq.query_astref_catfinalcut_by_fiat({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'], 'SCAMPCAT_FIAT', verbose=2)
+            self.assertEqual(1, len(za))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        with capture_output() as (out, _):
+            za = cq.query_astref_catfinalcut_by_fiat({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'], 'SCAMPCAT_FIAT', verbose=1)
+            self.assertEqual(1, len(za))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        za = cq.query_astref_catfinalcut_by_fiat({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'], 'SCAMPCAT_FIAT', verbose=1)
+        self.assertEqual(1, len(za))
+        curs.execute("rollback")
+
 
 
 if __name__ == '__main__':
