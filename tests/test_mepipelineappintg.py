@@ -648,11 +648,16 @@ port    =   0
         self.assertTrue(len(zres) > len(zpr))
         zdict2['flag'] = 2
         with capture_output() as (out, _):
-            zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '', verbose=2)
-            zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '')
+            zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+            zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '', verbose=2)
             self.assertTrue(len(zres) > len(zpr))
             output = out.getvalue().strip()
             self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '')
+        self.assertTrue(len(zres) > len(zpr))
+
 
         del zdict['flag']
         zdict['version'] = '0.0'
@@ -666,7 +671,7 @@ port    =   0
         zdict2['version'] = 'y4a1_v1.5'
         zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
         with capture_output() as (out, _):
-            zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '', verbose=1)
+            zpr = cq.query_zeropoint(zres, zdict, zdict2, dbh, '', verbose=3)
             self.assertTrue(len(zres) > len(zpr))
             output = out.getvalue().strip()
             self.assertTrue('sql' in output)
@@ -955,6 +960,32 @@ port    =   0
             self.assertEqual(1, len(za))
         finally:
             curs.execute("rollback")
+
+    def test_query_blacklist(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            zb = cq.query_blacklist(zres, {'table':'BLACKLIST'}, dbh, '', verbose=2)
+            self.assertEqual(len(zres), len(zb))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        with capture_output() as (out, _):
+            zb = cq.query_blacklist(zres, {'table':'BLACKLIST'}, dbh, '', verbose=1)
+            self.assertEqual(len(zres), len(zb))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zb = cq.query_blacklist(zres, {}, dbh, '')
+        self.assertEqual(len(zres), len(zb))
+
+        curs = dbh.cursor()
+        curs.execute("INSERT INTO BLACKLIST (EXPNUM,CCDNUM,REASON,ANALYST) VALUES (515441,58,'Bad image','USER')")
+        zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
+        zb = cq.query_blacklist(zres, {'table':'BLACKLIST'}, dbh, '')
+        self.assertTrue(len(zres) > len(zb))
 
 
 
