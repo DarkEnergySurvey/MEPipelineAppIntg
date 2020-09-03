@@ -987,7 +987,69 @@ port    =   0
         zb = cq.query_blacklist(zres, {'table':'BLACKLIST'}, dbh, '')
         self.assertTrue(len(zres) > len(zb))
 
+    def test_query_meds_psfmodels(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('meds', 'COSMOS_C09', 'Y3A2_COADD_TEST', '', False, ['z'],'desar2home', dbh, '', verbose=2)
+            self.assertEqual(2, len(z))
+            output = out.getvalue().strip()
+            self.assertTrue('Post query constrain' in output)
 
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('meds', 'COSMOS_C09', 'Y3A2_COADD_TEST', '', False, ['z'],'desar2home', dbh, '', verbose=1)
+            self.assertEqual(2, len(z))
+            output = out.getvalue().strip()
+            self.assertFalse('Post query constrain' in output)
+            self.assertTrue('sql' in output)
+
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('meds', 'COSMOS_C09', 'Y3A2_COADD_TEST', '', False, ['z','g','r','i','Y','u'],'desar2home', dbh, '', verbose=2)
+            self.assertEqual(12, len(z))
+            output = out.getvalue().strip()
+            self.assertFalse('Post query constrain' in output)
+            self.assertTrue('sql' in output)
+
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('meds', 'COSMOS_C09', 'Y3A2_COADD_TEST', '', False, ['z'],'desar2home', dbh, '')
+            self.assertEqual(2, len(z))
+            output = out.getvalue().strip()
+            self.assertFalse('Post query constrain' in output)
+            self.assertFalse('sql' in output)
+
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('psfmodel', 'COSMOS_C09', 'Y3A2_COADD_TEST2', 'Y3A1_COADD_TEST_DEEP', False, ['z','g','r','i','Y','u'],'desar2home', dbh, '', verbose=2)
+            self.assertEqual(4, len(z))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('psfmodel', 'COSMOS_C09', 'Y3A2_COADD_TEST2', 'Y3A1_COADD_TEST_DEEP', False, ['z','g','r','i','Y','u'],'desar2home', dbh, '', verbose=1)
+            self.assertEqual(4, len(z))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('psfmodel', 'COSMOS_C09', 'Y3A2_COADD_TEST2', 'Y3A1_COADD_TEST_DEEP', False, ['z','g','r','i','Y','u'],'desar2home', dbh, '')
+            self.assertEqual(4, len(z))
+            output = out.getvalue().strip()
+            self.assertFalse('sql' in output)
+
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('psfmodel', 'COSMOS_C09', 'Y3A2_COADD_TEST2', 'Y3A1_COADD_TEST_DEEP', True, ['z','g','r','i','Y','u'],'desar2home', dbh, '', verbose=2)
+            self.assertEqual(6, len(z))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('psfmodel', 'COSMOS_C09', 'Y3A2_COADD_TEST2', 'Y3A1_COADD_TEST_DEEP', True, ['z','g','r','i','Y','u'],'desar2home', dbh, '', verbose=1)
+            self.assertEqual(6, len(z))
+            output = out.getvalue().strip()
+            self.assertTrue('sql' in output)
+        with capture_output() as (out, _):
+            z = cq.query_meds_psfmodels('psfmodel', 'COSMOS_C09', 'Y3A2_COADD_TEST2', 'Y3A1_COADD_TEST_DEEP', True, ['z','g','r','i','Y','u'],'desar2home', dbh, '')
+            self.assertEqual(6, len(z))
+            output = out.getvalue().strip()
+            self.assertFalse('sql' in output)
 
 if __name__ == '__main__':
     unittest.main()
