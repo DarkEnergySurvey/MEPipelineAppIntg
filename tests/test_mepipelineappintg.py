@@ -1051,5 +1051,66 @@ port    =   0
             output = out.getvalue().strip()
             self.assertFalse('sql' in output)
 
-if __name__ == '__main__':
-    unittest.main()
+    def test_ImgDict_to_LLD(self):
+        mtypes = {'red_img': ['type', 'offset']}
+        imgs = OrderedDict([('Img1.fits', {'filename': 'Img1.fits',
+                                           'path': 'a/path',
+                                           'compression': '.fz',
+                                           'band': 'z',
+                                           'expnum': 101010,
+                                           'ccdnum': 5,
+                                           'red_img': {'filename': 'Img1.fits',
+                                                       'type': 'red_img',
+                                                       'offset': 52},
+                                           'rac1': 150.120978,
+                                           'rac2': 150.12093,
+                                           'rac3': 150.420285,
+                                           'rac4': 150.420543,
+                                           'decc1': 1.545518,
+                                           'decc2': 1.396321,
+                                           'decc3': 1.396405,
+                                           'decc4': 1.545604}),
+                            ('Img2.fits', {'filename': 'Img2.fits',
+                                           'path': 'a/path',
+                                           'compression': '.fz',
+                                           'band': 'g',
+                                           'red_img': {'filename': 'Img2.fits'},
+                                           'expnum': 101010,
+                                           'ccdnum': 5,
+                                           'rac1': 150.120978,
+                                           'rac2': 150.12093,
+                                           'rac3': 150.420285,
+                                           'rac4': 150.420543,
+                                           'decc1': 1.545518,
+                                           'decc2': 1.396321,
+                                           'decc3': 1.396405,
+                                           'decc4': 1.545604})
+                     ])
+        with capture_output() as (out, _):
+            z = cq.ImgDict_to_LLD(imgs, ['red_img'], mtypes, verbose=1)
+            self.assertEqual(len(z), 2)
+            self.assertEqual(len(z[0]), 1)
+            print('\n\n-------------\n' + str (z[0]))
+            for k in mtypes['red_img']:
+                self.assertTrue(k in z[0][0])
+                self.assertFalse(k in z[1][0])
+            output = out.getvalue().strip()
+            self.assertTrue('Warning: missing' in output)
+        with capture_output() as (out, _):
+            z = cq.ImgDict_to_LLD(imgs, ['red_img'], mtypes)
+            self.assertEqual(len(z), 2)
+            self.assertEqual(len(z[0]), 1)
+            for k in mtypes['red_img']:
+                self.assertTrue(k in z[0][0])
+                self.assertFalse(k in z[1][0])
+            output = out.getvalue().strip()
+            self.assertFalse('Warning: missing' in output)
+
+        def test_CatDict_to_LLD(self):
+            ftypes = ['headfile']
+            mdata = ['expnum','ccdnum']
+            zr = cq.CatDict_to_LLD(za, ['headfile'], ['expnum', 'ccdnum'])
+            self.assertTrue(len(zr), 1)
+            for k in mdata:
+                self.assertTrue(k in zr.keys())
+            self.assertIsNone(zr['compression'])
