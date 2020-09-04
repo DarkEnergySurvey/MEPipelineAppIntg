@@ -1106,11 +1106,18 @@ port    =   0
             output = out.getvalue().strip()
             self.assertFalse('Warning: missing' in output)
 
-        def test_CatDict_to_LLD(self):
-            ftypes = ['headfile']
-            mdata = ['expnum','ccdnum']
-            zr = cq.CatDict_to_LLD(za, ['headfile'], ['expnum', 'ccdnum'])
-            self.assertTrue(len(zr), 1)
-            for k in mdata:
-                self.assertTrue(k in zr.keys())
-            self.assertIsNone(zr['compression'])
+    def test_CatDict_to_LLD(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        ftypes = ['headfile']
+        mdata = ['expnum','ccdnum']
+        za = cq.query_astref_scampcat({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'])
+        zr = cq.CatDict_to_LLD(za, ['headfile'], ['expnum', 'ccdnum'])
+        self.assertTrue(len(zr), 1)
+        print('\n\n-------' + str(zr))
+        for k in mdata:
+            self.assertTrue(k in zr[0][0])
+        self.assertIsNone(zr[0][0]['compression'])
+
+
+if __name__ == '__main__':
+    unittest.main()
