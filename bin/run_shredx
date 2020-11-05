@@ -113,6 +113,8 @@ def main():
         fof_file = unknownargs[fof_file_idx+1]
         # Get the number of objects to fit from fof file
         nfit = fitvd_tools.find_number_fof(fof_file, ext='fof_id')
+    else:
+        raise Exception('--fofs was not specified on the command line')
 
     # Get the job bracketing
     j1, j2 = fitvd_tools.getrange(args.wrange, nfit, args.nranges)
