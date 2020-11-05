@@ -20,6 +20,8 @@ def get_globalseed(tilename, shift=''):
 
 
 def chunkseed(tilename, chunk, shift=''):
+    """ generate a random seed
+    """
     tile_seed = get_globalseed(tilename, shift)
     rng = numpy.random.RandomState(tile_seed)
     k = 1
@@ -30,19 +32,24 @@ def chunkseed(tilename, chunk, shift=''):
 
 
 def find_number_fof(filename, ext='fofid'):
+    """ find the number of fofs
+    """
     fofs = fitsio.read(filename)
     num = numpy.unique(fofs[ext]).size
     return num
 
 
 def find_number_meds(filename):
+    """ find the number of meds
+    """
     meds = fitsio.FITS(filename)
     num = meds['object_data'].get_nrows()
     return int(num)
 
 
 def getrange(n, nfof, nranges):
-
+    """ get the range for chunks
+    """
     chunck_size = math.ceil(float(nfof)/float(nranges))
     chunck_size = int(chunck_size)
     j1 = (n-1)*chunck_size
@@ -88,6 +95,8 @@ def read_psf_list(filename):
 
 
 def make_psf_map_files(filename):
+    """ write the psf map list files
+    """
     fnames = read_psf_list(filename)
     psf_map = {}
     for key in fnames:
@@ -101,6 +110,8 @@ def make_psf_map_files(filename):
 
 
 def parse_comma_separated_list(inputlist):
+    """ parse a comma separated list into a python list
+    """
     if ',' in inputlist[0]:
         return inputlist[0].split(',')
     return inputlist

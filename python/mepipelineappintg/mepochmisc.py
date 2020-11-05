@@ -6,6 +6,8 @@ from despydb import desdbi
 
 ######################################################################################
 def get_tile_info(indict):
+    """ get info about a tile from a dict
+    """
     # indict must have submit_des_services, submit_des_db_section, tilename
 
     dbh = desdbi.DesDbi(indict['submit_des_services'], indict['submit_des_db_section'])

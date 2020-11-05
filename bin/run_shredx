@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-
+"""
+    Wrapper for running shredx
+"""
 import argparse
 import os
 import sys
 import time
-from despymisc.miscutils import elapsed_time
 import subprocess
+import numpy.lib.recfunctions as rfn
+import fitsio
+from despymisc.miscutils import elapsed_time
 from mepipelineappintg import fitvd_tools
 import despyastro
 from despydb import desdbi
-import fitsio
-import numpy
-import numpy.lib.recfunctions as rfn
 
 EXE = 'shredx'
 
@@ -40,19 +41,18 @@ def make_coadd_object_map(args):
     # will return False
     if map_data is False:
         raise ValueError(f"ERROR: Query to {tablename} returned no objects, cannot create coadd_object map")
-    else:
-        print(f"# Sucessfull query to {tablename}")
+    print(f"# Sucessfull query to {tablename}")
 
     # Rename OBJECT_NUMBER to 'number' for shreder
     map_data = rfn.rename_fields(map_data, {'OBJECT_NUMBER': 'number',})
     # Write a fits file with the record array
     fitsio.write(args.ids, map_data, extname='OBJECTS', clobber=True)
     print(f"# Wrote COADD_OBJECT map to: {args.ids}")
-    return
 
 
 def main():
-
+    """ Main wrapper
+    """
     parser = argparse.ArgumentParser(description="Define the inputs for ngmixit and run")
 
     parser.add_argument("--tilename", type=str, action="store", default=None, required=True,
