@@ -6,6 +6,7 @@ import stat
 import sys
 import mock
 import copy
+import argparse
 from mock import patch, MagicMock
 from contextlib import contextmanager
 from io import StringIO
@@ -13,6 +14,7 @@ import re
 from pathlib import Path
 from collections import OrderedDict
 from astropy.io import fits
+import fitsio
 
 from MockDBI import MockConnection
 os.environ['MEPIPELINEAPPINTG_DIR'] = os.getcwd()
@@ -24,6 +26,8 @@ import mepipelineappintg.mepochmisc as mem
 import mepipelineappintg.meds_query as mq
 import mepipelineappintg.meappintg_tools as met
 import mepipelineappintg.coadd_query as cq
+import run_shredx as rsx
+
 from despydb import desdbi
 
 @contextmanager
@@ -41,6 +45,110 @@ class Junk:
         pass
     def get_nrows(self):
         return 1001
+
+class TestGeneral(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.sfile = 'services.ini'
+        cls.files = [cls.sfile]
+        open(cls.sfile, 'w').write("""
+
+[db-test]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   test
+port    =   0
+""")
+        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
+        cls.result = None
+        cls.output = None
+
+    @classmethod
+    def tearDownClass(cls):
+        for fl in cls.files:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        MockConnection.destroy()
+
+    def runtest(self, func, args, tests):
+        #with capture_output() as (self.output, _):
+        self.result = func(*args)
+        for t in tests:
+            t.run(self.result)
+                #func, arg1, arg2, msg = t
+                #res1 = None
+                #res2 = None
+                #if callable(arg1):
+                #    res1 = arg1(self.result)
+                #else:
+                #    res1 = arg1
+                #if callable(arg2):
+                #    res2 = arg2(self.result)
+                #else:
+                #    res2 = arg2
+                #func(res1, res2, msg)
+
+RESULT = "RESULT"
+GET = "GET"
+class TestFunc:
+    def __init__(self, func, arg1, arg2=None, msg=None):
+        self.func = func
+        self.arg1 = arg1
+        self.arg2 = arg2
+        self.msg = msg
+        self.result = None
+
+    def process(self, arg):
+        if isinstance(arg, TestFunc):
+            #print('Executing1')
+            return arg.run(self.result)
+        elif arg == RESULT:
+            return self.result
+        else:
+            return arg
+
+    def run(self, result):
+        self.result = result
+        print('R1 ' + str(self.arg1))
+        print('R2 ' + str(self.arg2))
+        r1 = self.process(self.arg1)
+        r2 = self.process(self.arg2)
+        #print('rr1 ' + str(r1))
+        #print('rr2 ' + str(r2))
+        #if isinstance(self.arg1, TestFunc):
+        #    #print('Executing1')
+        #    r1 = self.arg1.run(result)
+        #elif self.arg1 == RESULT:
+        #    r1 = result
+        #else:
+        #    r1 = self.arg1
+        #if isinstance(self.arg2, TestFunc):
+        #    r2 = self.arg2.run(result)
+        #elif self.arg2 == RESULT:
+        #    r2 = result
+        #else:
+        #    r2 = self.arg2
+        #print('\n\n--------\n\n' + str(r1) + '  ' + str(r2))
+        if self.func == GET:
+            return r1.get(r2)
+        if r2 is None:
+            if self.msg is None:
+                return self.func(r1)
+            else:
+                return self.func(r1, msg)
+        else:
+            if self.msg is None:
+                return self.func(r1, r2)
+            else:
+                return self.func(r1, r2, self.msg)
+
+
+
 
 class TestNgmixitTools(unittest.TestCase):
     @classmethod
@@ -276,7 +384,7 @@ port    =   0
             output = out.getvalue().strip()
             self.assertTrue('Wrote file' in output)
             self.assertTrue(os.path.exists(outfile2))
-            self.assertTrue(Path(outfile2).stat().st_size > 0)
+            self.assertGreater(Path(outfile2).stat().st_size, 0)
 
     def test_get_root_archive(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
@@ -474,32 +582,32 @@ test_Y.psf Y
             self.assertTrue(os.path.isfile(fl))
             self.files.append(fl)
 
-class TestCoaddQuery(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.sfile = 'services.ini'
-        cls.files = [cls.sfile]
-        open(cls.sfile, 'w').write("""
+class TestCoaddQuery(TestGeneral):
+    #@classmethod
+    #def setUpClass(cls):
+    #    cls.sfile = 'services.ini'
+    #    cls.files = [cls.sfile]
+    #    open(cls.sfile, 'w').write("""
+#
+#[db-test]
+#USER    =   Minimal_user
+#PASSWD  =   Minimal_passwd
+#name    =   Minimal_name
+#sid     =   Minimal_sid
+#server  =   Minimal_server
+#type    =   test
+#port    =   0
+#""")
+#        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
 
-[db-test]
-USER    =   Minimal_user
-PASSWD  =   Minimal_passwd
-name    =   Minimal_name
-sid     =   Minimal_sid
-server  =   Minimal_server
-type    =   test
-port    =   0
-""")
-        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
-
-    @classmethod
-    def tearDownClass(cls):
-        for fl in cls.files:
-            try:
-                os.unlink(fl)
-            except:
-                pass
-        MockConnection.destroy()
+#    @classmethod
+#    def tearDownClass(cls):
+#        for fl in cls.files:
+#            try:
+#                os.unlink(fl)
+#            except:
+#                pass
+#        MockConnection.destroy()
 
     def test_query_coadd_geometry(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
@@ -530,32 +638,43 @@ port    =   0
 
     def test_query_coadd_img_by_edges(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
-        zres = None
+        #zres = None
+        tests = [TestFunc(self.assertGreater, TestFunc(len, RESULT), 0, 'Failed Here'),
+                 TestFunc(self.assertIn, 'filename', TestFunc(GET, RESULT, TestFunc(next, TestFunc(iter, RESULT)))),
+                 TestFunc(self.assertEqual, 'z', TestFunc(GET, TestFunc(GET, RESULT, TestFunc(next, TestFunc(iter, RESULT))), 'band'))]
+        self.runtest(cq.query_coadd_img_by_edges,
+                     [{}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', dbh, '', 0],
+                     tests)
+                     #[[self.assertGreater, len, 1000, 'Failed here']])
+
+
+
+
         with capture_output() as (out, _):
             zres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', dbh, '', verbose=2)
-            self.assertTrue(len(zres) > 0)
+            #self.assertTrue(len(zres) > 0)
             key = list(zres.keys())[0]
-            self.assertTrue('filename' in zres[key])
+            #self.assertTrue('filename' in zres[key])
             self.assertEqual('z', zres[key]['band'])
             output = out.getvalue().strip()
             self.assertTrue("Post query constraint" in output)
 
-        with capture_output() as (out, _):
-            res2 = cq.query_coadd_img_by_edges(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', dbh, '', verbose=1)
-            self.assertEqual(res2, zres)
-            output = out.getvalue().strip()
-            self.assertTrue('sql' in output)
+        #with capture_output() as (out, _):
+        #    res2 = cq.query_coadd_img_by_edges(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['z'], 'desar2home', dbh, '', verbose=1)
+        #    self.assertEqual(res2, zres)
+        #    output = out.getvalue().strip()
+        #    self.assertTrue('sql' in output)
 
-        zres = cq.query_coadd_img_by_edges(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['Y'], 'desar2home', dbh, '')
-        gres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g'], 'desar2home', dbh, '')
-        ires = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['i'], 'desar2home', dbh, '')
-        rres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['r'], 'desar2home', dbh, '')
+        #zres = cq.query_coadd_img_by_edges(zres, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['Y'], 'desar2home', dbh, '')
+        #gres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g'], 'desar2home', dbh, '')
+        #ires = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['i'], 'desar2home', dbh, '')
+        #rres = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['r'], 'desar2home', dbh, '')
 
-        merged = {**zres, **gres, **ires, **rres}
+        #merged = {**zres, **gres, **ires, **rres}
 
-        res = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g','r','i','z','Y'], 'desar2home', dbh, '')
+        #res = cq.query_coadd_img_by_edges({}, 'TEST1118+3000', 'Y6A1_COADD_INPUT', ['g','r','i','z','Y'], 'desar2home', dbh, '')
 
-        self.assertDictEqual(merged, res)
+        #self.assertDictEqual(merged, res)
 
     def test_query_coadd_img_by_fiat(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
@@ -760,6 +879,7 @@ port    =   0
         zres = cq.query_coadd_img_from_attempt({}, 2309774, ['z'], 'desar2home', dbh, '')
         zb = cq.query_PIFFmodel(zres, 'desar2home', dbh, '', 'Y6A1_COADD_TEST')
         self.assertEqual(len(zres), len(zb))
+
 
     def test_query_headfile_from_attempt(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
@@ -1113,11 +1233,65 @@ port    =   0
         za = cq.query_astref_scampcat({}, 'DES1002+0126', 'Y6A1_COADD_TEST', dbh, '', ['z','i','g'])
         zr = cq.CatDict_to_LLD(za, ['headfile'], ['expnum', 'ccdnum'])
         self.assertTrue(len(zr), 1)
-        print('\n\n-------' + str(zr))
         for k in mdata:
             self.assertTrue(k in zr[0][0])
         self.assertIsNone(zr[0][0]['compression'])
 
+class Test_run_shredex(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.sfile = 'services.ini'
+        cls.files = [cls.sfile]
+        open(cls.sfile, 'w').write("""
+
+[db-test]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   test
+port    =   0
+""")
+        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
+        dbh = desdbi.DesDbi('services.ini', 'db-test')
+        cur = dbh.cursor()
+        cur.executescript(open('tests/DATA.sql', 'r').read())
+        dbh.commit()
+        cur.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        for fl in cls.files:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        MockConnection.destroy()
+
+    def test_make_coadd_object_map(self):
+        filename = 'test_ids.fits'
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--cat", type=str, action="store", default=None, required=True,
+                        help="The name of the coadd catalog")
+        parser.add_argument("--coadd_object_tablename", type=str, action="store", default='COADD_OBJECT',
+                        help="Name of the table with COADD_OBJECT")
+        parser.add_argument("--ids", type=str, action="store", default=None,
+                        help="File with map between COADD_OBJECT ID and SExtractor OBJECT_NUMBER")
+        parser.add_argument("--db_section", type=str, action="store", default=None,
+                        help="Database section to connect")
+        parser.add_argument("--services", type=str, action="store", default='.desservices.ini',
+                            help="services file name")
+        args = parser.parse_args(['--cat', 'test_coadd_objects.fits',
+                                  '--coadd_object_tablename', 'coadd_object_test2',
+                                  '--ids', filename,
+                                  '--db_section', 'db-test',
+                                  '--services', 'services.ini'])
+        rsx.make_coadd_object_map(args)
+        data, hdr = fitsio.read(filename, header=True)
+        self.assertEqual(100, hdr['NAXIS2'])
+        self.assertEqual(100, data.shape[0])
+        os.unlink(filename)
 
 if __name__ == '__main__':
     unittest.main()
