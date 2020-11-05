@@ -114,8 +114,6 @@ class TestFunc:
 
     def run(self, result):
         self.result = result
-        print('R1 ' + str(self.arg1))
-        print('R2 ' + str(self.arg2))
         r1 = self.process(self.arg1)
         r2 = self.process(self.arg2)
         #print('rr1 ' + str(r1))
@@ -1292,6 +1290,12 @@ port    =   0
         self.assertEqual(100, hdr['NAXIS2'])
         self.assertEqual(100, data.shape[0])
         os.unlink(filename)
+        args = parser.parse_args(['--cat', 'test_coadd_objects.fits',
+                                  '--coadd_object_tablename', 'coadd_object',
+                                  '--ids', filename,
+                                  '--db_section', 'db-test',
+                                  '--services', 'services.ini'])
+        self.assertRaises(ValueError, rsx.make_coadd_object_map, args)
 
 if __name__ == '__main__':
     unittest.main()
