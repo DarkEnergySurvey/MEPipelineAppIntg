@@ -1528,6 +1528,7 @@ def query_meds_psfmodels(QueryType, CoaddTile, CoaddProcTag, SE_ProcTag, COADD_O
             CoaddTile: Name of COADD tile for search
             CoaddProcTag: Processing Tag used to constrain pool of input coadd runs
             SE_ProcTag:   Processing Tag used to constrain pool of input SE images/psf
+            COADD_ONLY: Boolean for whether only the coadd images should be queried?
             BandList:  List of bands (returned ImgDict list will be restricted to only these bands)
             ArchiveSite: Constraint that data/files exist within a specific archive
             dbh:       Database connection to be used
@@ -1662,7 +1663,7 @@ def query_meds_psfmodels(QueryType, CoaddTile, CoaddProcTag, SE_ProcTag, COADD_O
 
 ######################################################################################
 def ImgDict_to_LLD(ImgDict, filetypes, mdatatypes, verbose=0):
-    """ Function to convert CatDict into appropriate list of list of dicts suitable for WCL"""
+    """ Function to convert ImgDict into appropriate list of list of dicts suitable for WCL"""
     #
     #   Note the current means for expressing this list does not have a means to have more than
     #   one image/file type on a per record basis (this is partially because compression would need
