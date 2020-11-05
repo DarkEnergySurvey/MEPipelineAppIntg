@@ -1297,5 +1297,48 @@ port    =   0
                                   '--services', 'services.ini'])
         self.assertRaises(ValueError, rsx.make_coadd_object_map, args)
 
+    def test_main(self):
+        filename = 'test_ids.fits'
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = ['run_shredx','--cat', 'test_coadd_objects.fits',
+                    '--coadd_object_tablename', 'coadd_object_test2',
+                    '--ids', filename,
+                    '--db_section', 'db-test',
+                    '--services', 'services.ini',
+                    '--tilename', 'TEST1234-567',
+                    '--coadd_ima_list', 'x',
+                    '--coadd_psf_list', 'y',
+                    '--bands', 'g',
+                    '--nranges', '10',
+                    '--wrange', '2'
+                    ]
+        with mock.patch.object(fvdt, 'read_meds_list', return_value={'g': 'a'}):
+            with mock.patch.object(fvdt, 'find_number_fof', return_value=2):
+                self.assertRaises(Exception, rsx.main)
+                data, hdr = fitsio.read(filename, header=True)
+                self.assertEqual(100, hdr['NAXIS2'])
+                self.assertEqual(100, data.shape[0])
+                os.unlink(filename)
+        sys.argv.append('--fofs')
+        sys.argv.append('fofs.file')
+        with mock.patch.object(fvdt, 'read_meds_list', return_value={'g': 'a'}):
+            with mock.patch.object(fvdt, 'find_number_fof', return_value=2):
+                self.assertRaises(SystemExit, rsx.main)
+                data, hdr = fitsio.read(filename, header=True)
+                self.assertEqual(100, hdr['NAXIS2'])
+                self.assertEqual(100, data.shape[0])
+                os.unlink(filename)
+        sys.argv.append('--dryrun')
+        with mock.patch.object(fvdt, 'read_meds_list', return_value={'g': 'a'}):
+            with mock.patch.object(fvdt, 'find_number_fof', return_value=2):
+                self.assertRaises(SystemExit, rsx.main)
+                data, hdr = fitsio.read(filename, header=True)
+                self.assertEqual(100, hdr['NAXIS2'])
+                self.assertEqual(100, data.shape[0])
+                os.unlink(filename)
+
+        sys.argv = copy.deepcopy(temp)
+
+
 if __name__ == '__main__':
     unittest.main()
