@@ -7,6 +7,7 @@ import sys
 import mock
 import copy
 import argparse
+import subprocess
 from mock import patch, MagicMock
 from contextlib import contextmanager
 from io import StringIO
@@ -1314,28 +1315,37 @@ port    =   0
                     ]
         with mock.patch.object(fvdt, 'read_meds_list', return_value={'g': 'a'}):
             with mock.patch.object(fvdt, 'find_number_fof', return_value=2):
-                self.assertRaises(Exception, rsx.main)
-                data, hdr = fitsio.read(filename, header=True)
-                self.assertEqual(100, hdr['NAXIS2'])
-                self.assertEqual(100, data.shape[0])
-                os.unlink(filename)
+                with mock.patch.object(subprocess, 'call', return_value=127):
+                    self.assertRaises(Exception, rsx.main)
+        sys.argv.append('--ids')
+        sys.argv.append(filename)
+        with mock.patch.object(fvdt, 'read_meds_list', return_value={'g': 'a'}):
+            with mock.patch.object(fvdt, 'find_number_fof', return_value=2):
+                with mock.patch.object(subprocess, 'call', return_value=127):
+                    self.assertRaises(Exception, rsx.main)
+                    data, hdr = fitsio.read(filename, header=True)
+                    self.assertEqual(100, hdr['NAXIS2'])
+                    self.assertEqual(100, data.shape[0])
+                    os.unlink(filename)
         sys.argv.append('--fofs')
         sys.argv.append('fofs.file')
         with mock.patch.object(fvdt, 'read_meds_list', return_value={'g': 'a'}):
             with mock.patch.object(fvdt, 'find_number_fof', return_value=2):
-                self.assertRaises(SystemExit, rsx.main)
-                data, hdr = fitsio.read(filename, header=True)
-                self.assertEqual(100, hdr['NAXIS2'])
-                self.assertEqual(100, data.shape[0])
-                os.unlink(filename)
+                with mock.patch.object(subprocess, 'call', return_value=127):
+                    self.assertRaises(SystemExit, rsx.main)
+                    data, hdr = fitsio.read(filename, header=True)
+                    self.assertEqual(100, hdr['NAXIS2'])
+                    self.assertEqual(100, data.shape[0])
+                    os.unlink(filename)
         sys.argv.append('--dryrun')
         with mock.patch.object(fvdt, 'read_meds_list', return_value={'g': 'a'}):
             with mock.patch.object(fvdt, 'find_number_fof', return_value=2):
-                self.assertRaises(SystemExit, rsx.main)
-                data, hdr = fitsio.read(filename, header=True)
-                self.assertEqual(100, hdr['NAXIS2'])
-                self.assertEqual(100, data.shape[0])
-                os.unlink(filename)
+                with mock.patch.object(subprocess, 'call', return_value=127):
+                    self.assertRaises(SystemExit, rsx.main)
+                    data, hdr = fitsio.read(filename, header=True)
+                    self.assertEqual(100, hdr['NAXIS2'])
+                    self.assertEqual(100, data.shape[0])
+                    os.unlink(filename)
 
         sys.argv = copy.deepcopy(temp)
 
