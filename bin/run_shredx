@@ -29,7 +29,7 @@ def make_coadd_object_map(args):
 
     print("Getting connection to %s" % args.db_section)
     # Get a dbh handle to query
-    dbh = desdbi.DesDbi(section=args.db_section, retry=True)
+    dbh = desdbi.DesDbi(desfile=args.services, section=args.db_section, retry=True)
     # Format and query with query2rec
     QUERY_MAP = QUERY_FORMAT % (tablename, catname)
     print("# Will execute query to map ID to OBJECT_NUMBER: ")
@@ -80,6 +80,8 @@ def main():
     parser.add_argument("--db_section", type=str, action="store", default=None,
                         # choices=['db-desoper','db-destest'],
                         help="Database section to connect")
+    parser.add_argument("--services", type=str, action="store", default=None,
+                        help="services file name")
 
     ignore_options = ['coadd_ima_list', 'coadd_psf_list', 'nranges', 'wrange', 'dryrun',
                       'tilename', 'seed_shift', 'bands', 'meds_list',
