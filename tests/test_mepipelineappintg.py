@@ -28,6 +28,7 @@ import mepipelineappintg.meds_query as mq
 import mepipelineappintg.meappintg_tools as met
 import mepipelineappintg.coadd_query as cq
 import run_shredx as rsx
+import run_ngmixit as rngm
 
 from despydb import desdbi
 
@@ -1349,6 +1350,31 @@ port    =   0
 
         sys.argv = copy.deepcopy(temp)
 
+
+class Test_run_ngmixit(unittest.TestCase):
+    def test_main(self):
+        filename = 'test_ids.fits'
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = ['run_shredx',
+                    '--meds_list', 'meds.file',
+                    '--tilename', 'TEST1234-567',
+                    '--coadd_ima_list', 'x',
+                    '--coadd_psf_list', 'y',
+                    '--bands', 'g,r',
+                    '--nranges', '10',
+                    '--wrange', '2'
+                    ]
+
+        with mock.patch.object(met, 'read_meds_list', return_value={'g':'meds.g.fits', 'r':'meds.r.fits'}):
+            with mock.patch.object(met, 'find_number_fof', return_value=10):
+                with mock.patch.object(met, 'find_number_meds', return_value=10):
+                    with mock.patch.object(subprocess, 'call', return_value=127):
+                        self.assertRaises(SystemExit, rngm.main)
+                        sys.argv.append('--fof-file')
+                        sys.argv.append('fofs.file')
+                        sys.argv.append('--dryrun')
+                        self.assertRaises(SystemExit, rngm.main)
+        sys.argv = copy.deepcopy(temp)
 
 if __name__ == '__main__':
     unittest.main()
