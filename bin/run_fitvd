@@ -89,7 +89,7 @@ def main():
 
     # We build the command-list from the known (additional) arguments
     cmdlist = [EXE]
-    for key in dict_args:
+    for key in dict_args:     # pragma: no cover
         if key in ignore_options:
             continue
         print(f"# \t--{key:-10s}\t{vars(args)[key]}")
