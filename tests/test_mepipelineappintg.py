@@ -44,6 +44,8 @@ def importer(name):
 rsx = importer('run_shredx')
 rngm = importer('run_ngmixit')
 rnnd = importer('run_ngmixer-meds-make-nbrs-data')
+rfmf = importer('run_fitvd-make-fofs')
+rfc = importer('run_fitvd-collate')
 
 @contextmanager
 def capture_output():
@@ -1366,7 +1368,6 @@ port    =   0
 
 class Test_run_ngmixit(unittest.TestCase):
     def test_main(self):
-        filename = 'test_ids.fits'
         temp = copy.deepcopy(sys.argv)
         sys.argv = ['run_ngmixit',
                     '--meds_list', 'meds.file',
@@ -1393,7 +1394,6 @@ class Test_run_ngmixit(unittest.TestCase):
 
 class Test_run_ngmixer_meds_make_nbrs_data(unittest.TestCase):
     def test_main(self):
-        filename = 'test_ids.fits'
         temp = copy.deepcopy(sys.argv)
         sys.argv = [rnnd.EXE,
                     '--meds_list', 'meds.file',
@@ -1406,6 +1406,37 @@ class Test_run_ngmixer_meds_make_nbrs_data(unittest.TestCase):
                 sys.argv.append('--dryrun')
                 self.assertRaises(SystemExit, rnnd.main)
         sys.argv = copy.deepcopy(temp)
+
+class Test_run_fitvd_make_fofs(unittest.TestCase):
+    def test_main(self):
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = [rfmf.EXE,
+                    '--meds_list', 'meds.file',
+                    '--bands', 'g,r'
+                    ]
+
+        with mock.patch.object(met, 'read_meds_list', return_value={'g':'meds.g.fits', 'r':'meds.r.fits'}):
+            with mock.patch.object(subprocess, 'call', return_value=127):
+                self.assertRaises(SystemExit, rfmf.main)
+                sys.argv.append('--dryrun')
+                self.assertRaises(SystemExit, rfmf.main)
+        sys.argv = copy.deepcopy(temp)
+
+class Test_run_fitvd_collate(unittest.TestCase):
+    def test_main(self):
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = [rfc.EXE,
+                    '--meds_list', 'meds.file',
+                    '--bands', 'g,r'
+                    ]
+
+        with mock.patch.object(met, 'read_meds_list', return_value={'g':'meds.g.fits', 'r':'meds.r.fits'}):
+            with mock.patch.object(subprocess, 'call', return_value=127):
+                self.assertRaises(SystemExit, rfc.main)
+                sys.argv.append('--dryrun')
+                self.assertRaises(SystemExit, rfc.main)
+        sys.argv = copy.deepcopy(temp)
+
 
 if __name__ == '__main__':
     unittest.main()
