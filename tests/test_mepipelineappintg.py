@@ -1454,15 +1454,18 @@ class Test_run_fitvd(unittest.TestCase):
 
         with mock.patch.object(met, 'read_meds_list', return_value={'g':'meds.g.fits', 'r':'meds.r.fits'}):
             with mock.patch.object(met, 'find_number_meds', return_value=10):
-                with mock.patch.object(subprocess, 'call', return_value=127):
-                    self.assertRaises(SystemExit, rfd.main)
-                    sys.argv.append('--dryrun')
-                    sys.argv.append('--fof-file')
-                    sys.argv.append('fofs.file')
-                    self.assertRaises(SystemExit, rfd.main)
-                    sys.argv.append('--mof-file')
-                    sys.argv.append('mofs.file')
-                    self.assertRaises(SystemExit, rfd.main)
+                with mock.patch.object(met, 'find_number_fof', return_value=10):
+                    with mock.patch.object(subprocess, 'call', return_value=127):
+                        with mock.patch.object(met, 'getrange_dynamical', return_value=(1,6)):
+                            self.assertRaises(SystemExit, rfd.main)
+                            sys.argv.append('--dryrun')
+                            sys.argv.append('--fofs')
+                            sys.argv.append('fofs.file')
+                            self.assertRaises(SystemExit, rfd.main)
+                            sys.argv.append('--mof-file')
+                            sys.argv.append('mofs.file')
+                            sys.argv.append('--dynamic')
+                            self.assertRaises(SystemExit, rfd.main)
         sys.argv = copy.deepcopy(temp)
 
 class Test_run_desmeds(unittest.TestCase):
@@ -1544,16 +1547,12 @@ port    =   0
         self.assertEqual(100, hdr['NAXIS2'])
         self.assertEqual(100, data.shape[0])
         os.unlink(filename)
-        args = parser.parse_args(['--coadd_cat', 'testfile_r.fits',
-                                  '--coadd_object_tablename', 'coadd_object_empty',
+        args = parser.parse_args(['--coadd_cat', 'testfile_y.fits',
+                                  '--coadd_object_tablename', 'coadd_object',
                                   '--coadd_object_map', filename,
                                   '--db_section', 'db-test',
                                   '--services', 'services.ini'])
-        rdm.make_coadd_object_map(args)
-        data, hdr = fitsio.read(filename, header=True)
-        self.assertEqual(100, hdr['NAXIS2'])
-        self.assertEqual(100, data.shape[0])
-        os.unlink(filename)
+        self.assertRaises(ValueError, rdm.make_coadd_object_map, args)
 
 
 if __name__ == '__main__':
