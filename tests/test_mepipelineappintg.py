@@ -1319,7 +1319,6 @@ port    =   0
         temp = copy.deepcopy(sys.argv)
         sys.argv = ['run_shredx','--cat', 'test_coadd_objects.fits',
                     '--coadd_object_tablename', 'coadd_object_test2',
-                    '--ids', filename,
                     '--db_section', 'db-test',
                     '--services', 'services.ini',
                     '--tilename', 'TEST1234-567',
@@ -1386,10 +1385,12 @@ class Test_run_ngmixit(unittest.TestCase):
                         self.assertRaises(SystemExit, rngm.main)
                         sys.argv.append('--fof-file')
                         sys.argv.append('fofs.file')
-                        sys.argv.append('--mof-file')
-                        sys.argv.append('mofs.file')
                         sys.argv.append('--dryrun')
                         self.assertRaises(SystemExit, rngm.main)
+                        sys.argv.append('--mof-file')
+                        sys.argv.append('mofs.file')
+                        self.assertRaises(SystemExit, rngm.main)
+
         sys.argv = copy.deepcopy(temp)
 
 class Test_run_ngmixer_meds_make_nbrs_data(unittest.TestCase):
@@ -1434,6 +1435,7 @@ class Test_run_fitvd_collate(unittest.TestCase):
             with mock.patch.object(subprocess, 'call', return_value=127):
                 self.assertRaises(SystemExit, rfc.main)
                 sys.argv.append('--dryrun')
+                sys.argv.append('--testcommand')
                 self.assertRaises(SystemExit, rfc.main)
         sys.argv = copy.deepcopy(temp)
 
