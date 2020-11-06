@@ -46,6 +46,8 @@ rngm = importer('run_ngmixit')
 rnnd = importer('run_ngmixer-meds-make-nbrs-data')
 rfmf = importer('run_fitvd-make-fofs')
 rfc = importer('run_fitvd-collate')
+rfd = importer('run_fitvd')
+rdm = importer('run_desmeds')
 
 @contextmanager
 def capture_output():
@@ -1438,6 +1440,120 @@ class Test_run_fitvd_collate(unittest.TestCase):
                 sys.argv.append('--testcommand')
                 self.assertRaises(SystemExit, rfc.main)
         sys.argv = copy.deepcopy(temp)
+
+class Test_run_fitvd(unittest.TestCase):
+    def test_main(self):
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = [rfd.EXE,
+                    '--meds_list', 'meds.file',
+                    '--bands', 'g,r',
+                    '--tilename', 'TEST1234-567',
+                    '--nranges', '10',
+                    '--wrange', '2'
+                    ]
+
+        with mock.patch.object(met, 'read_meds_list', return_value={'g':'meds.g.fits', 'r':'meds.r.fits'}):
+            with mock.patch.object(met, 'find_number_meds', return_value=10):
+                with mock.patch.object(subprocess, 'call', return_value=127):
+                    self.assertRaises(SystemExit, rfd.main)
+                    sys.argv.append('--dryrun')
+                    sys.argv.append('--fof-file')
+                    sys.argv.append('fofs.file')
+                    self.assertRaises(SystemExit, rfd.main)
+                    sys.argv.append('--mof-file')
+                    sys.argv.append('mofs.file')
+                    self.assertRaises(SystemExit, rfd.main)
+        sys.argv = copy.deepcopy(temp)
+
+class Test_run_desmeds(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.f1 = 'testfile.1'
+        cls.f2 = 'testfile.2'
+        cls.outfile = 'outfile.test'
+        with open(cls.f1, 'w') as f:
+            f.write("""a b
+c d
+e f
+""")
+        with open(cls.f2, 'w') as f:
+            f.write("""1
+2
+3
+""")
+        cls.sfile = 'services.ini'
+        cls.files = [cls.sfile, cls.f1, cls.f2, cls.outfile]
+        open(cls.sfile, 'w').write("""
+
+[db-test]
+USER    =   Minimal_user
+PASSWD  =   Minimal_passwd
+name    =   Minimal_name
+sid     =   Minimal_sid
+server  =   Minimal_server
+type    =   test
+port    =   0
+""")
+        os.chmod(cls.sfile, (0xffff & ~(stat.S_IROTH | stat.S_IWOTH | stat.S_IRGRP | stat.S_IWGRP)))
+        dbh = desdbi.DesDbi('services.ini', 'db-test')
+        cur = dbh.cursor()
+        cur.executescript(open('tests/TEST.sql', 'r').read())
+        dbh.commit()
+        cur.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        for fl in cls.files:
+            try:
+                os.unlink(fl)
+            except:
+                pass
+        MockConnection.destroy()
+
+    def test_paste_files(self):
+        rdm.paste_files(self.f1, self.f2, self.outfile)
+        with open(self.outfile, 'r') as f:
+            rl = f.readlines()
+            self.assertEqual(3, len(rl))
+            temp = rl[0].split()
+            self.assertEqual('a', temp[0])
+            self.assertEqual('1', temp[1])
+            self.assertEqual('b', temp[2])
+
+    def test_make_coadd_object_map(self):
+        filename = 'test_ids.fits'
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--coadd_cat", dest="coadd_cat_url", type=str, action="store", default=None, required=True,
+                        help="The name of the coadd catalog")
+        parser.add_argument("--coadd_object_tablename", type=str, action="store", default='COADD_OBJECT',
+                        help="Name of the table with COADD_OBJECT")
+        parser.add_argument("--db_section", type=str, action="store", default=None,
+                        help="Database section to connect")
+        parser.add_argument("--services", type=str, action="store", default='.desservices.ini',
+                            help="services file name")
+        parser.add_argument("--coadd_object_map", type=str, action="store", default=None,
+                            help="File with map between COADD_OBJECT ID and SExtractor OBJECT_NUMBER")
+
+        args = parser.parse_args(['--coadd_cat', 'testfile_r.fits',
+                                  '--coadd_object_tablename', 'coadd_object',
+                                  '--coadd_object_map', filename,
+                                  '--db_section', 'db-test',
+                                  '--services', 'services.ini'])
+        rdm.make_coadd_object_map(args)
+        data, hdr = fitsio.read(filename, header=True)
+        self.assertEqual(100, hdr['NAXIS2'])
+        self.assertEqual(100, data.shape[0])
+        os.unlink(filename)
+        args = parser.parse_args(['--coadd_cat', 'testfile_r.fits',
+                                  '--coadd_object_tablename', 'coadd_object_empty',
+                                  '--coadd_object_map', filename,
+                                  '--db_section', 'db-test',
+                                  '--services', 'services.ini'])
+        rdm.make_coadd_object_map(args)
+        data, hdr = fitsio.read(filename, header=True)
+        self.assertEqual(100, hdr['NAXIS2'])
+        self.assertEqual(100, data.shape[0])
+        os.unlink(filename)
 
 
 if __name__ == '__main__':
