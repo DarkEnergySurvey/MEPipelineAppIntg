@@ -8,6 +8,7 @@ import mock
 import copy
 import argparse
 import subprocess
+import importlib
 from mock import patch, MagicMock
 from contextlib import contextmanager
 from io import StringIO
@@ -27,10 +28,22 @@ import mepipelineappintg.mepochmisc as mem
 import mepipelineappintg.meds_query as mq
 import mepipelineappintg.meappintg_tools as met
 import mepipelineappintg.coadd_query as cq
-import run_shredx as rsx
-import run_ngmixit as rngm
+
+#import run_shredx as rsx
+#import run_ngmixit as rngm
 
 from despydb import desdbi
+
+def importer(name):
+    spec = importlib.util.spec_from_loader(name, importlib.machinery.SourceFileLoader(name, './bin/' + name))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    sys.modules[name] = module
+    return module
+
+rsx = importer('run_shredx')
+rngm = importer('run_ngmixit')
+rnnd = importer('run_ngmixer-meds-make-nbrs-data')
 
 @contextmanager
 def capture_output():
@@ -1355,7 +1368,7 @@ class Test_run_ngmixit(unittest.TestCase):
     def test_main(self):
         filename = 'test_ids.fits'
         temp = copy.deepcopy(sys.argv)
-        sys.argv = ['run_shredx',
+        sys.argv = ['run_ngmixit',
                     '--meds_list', 'meds.file',
                     '--tilename', 'TEST1234-567',
                     '--coadd_ima_list', 'x',
@@ -1372,8 +1385,26 @@ class Test_run_ngmixit(unittest.TestCase):
                         self.assertRaises(SystemExit, rngm.main)
                         sys.argv.append('--fof-file')
                         sys.argv.append('fofs.file')
+                        sys.argv.append('--mof-file')
+                        sys.argv.append('mofs.file')
                         sys.argv.append('--dryrun')
                         self.assertRaises(SystemExit, rngm.main)
+        sys.argv = copy.deepcopy(temp)
+
+class Test_run_ngmixer_meds_make_nbrs_data(unittest.TestCase):
+    def test_main(self):
+        filename = 'test_ids.fits'
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = [rnnd.EXE,
+                    '--meds_list', 'meds.file',
+                    '--bands', 'g,r'
+                    ]
+
+        with mock.patch.object(met, 'read_meds_list', return_value={'g':'meds.g.fits', 'r':'meds.r.fits'}):
+            with mock.patch.object(subprocess, 'call', return_value=127):
+                self.assertRaises(SystemExit, rnnd.main)
+                sys.argv.append('--dryrun')
+                self.assertRaises(SystemExit, rnnd.main)
         sys.argv = copy.deepcopy(temp)
 
 if __name__ == '__main__':
