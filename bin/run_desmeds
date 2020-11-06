@@ -35,14 +35,13 @@ def make_coadd_object_map(args):
     tablename = args.coadd_object_tablename
 
     # Get a dbh handle to query
-    dbh = desdbi.DesDbi(section=args.db_section, retry=True)
+    dbh = desdbi.DesDbi(args.services, section=args.db_section, retry=True)
     # Format and query with query2rec
     # RAG updated query to return color information
-    QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color,g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by object_number"
+    QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as GI_COLOR, g.mag_auto as G_MAG, g.magerr_auto as G_MAGERR, i.mag_auto as I_MAG, i.magerr_auto as I_MAGERR from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by c.object_number"
     print("# Will query: ")
     print(QUERY_MAP)
     map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
-
     # Make sure we get an answer, if no entries found query2rec() will return False
     if map_data is False:
         # Try alt-table
@@ -50,7 +49,7 @@ def make_coadd_object_map(args):
         tablename = 'COADD_OBJECT_SAVE'
 
         # QUERY_MAP = "select OBJECT_NUMBER,ID from %s where FILENAME='%s' order by object_number" % (tablename,catname)
-        QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color,g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by object_number"
+        QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as GI_COLOR,g.mag_auto as G_MAG,g.magerr_auto as G_MAGERR,i.mag_auto as I_MAG, i.magerr_auto as I_MAGERR from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by c.object_number"
         print(f"# WARNING: Query to {tablename} returned no objects, cannot create coadd_object map")
         print(f"# Will try now {tablename}")
         print(QUERY_MAP)
@@ -108,6 +107,8 @@ def main():
                         help="Name of the table with COADD_OBJECT")
     parser.add_argument("--db_section", type=str, action="store", default=None, #choices=['db-desoper','db-destest'],
                         help="Database section to connect")
+    parser.add_argument("--services", type=str, action="store", default=None,
+                        help="Desservices file to use")
     parser.add_argument("--meds_output", dest='meds_url', type=str, action="store", default=None, required=True,
                         help="The output MED name")
     parser.add_argument("--tileconf", type=str, action="store", default=None, required=True,
