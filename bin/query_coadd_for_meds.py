@@ -17,10 +17,12 @@ if __name__ == "__main__":
     import os
     import despydb.desdbi
     import time
+    import yaml
     import intgutils.queryutils as queryutils
     import mepipelineappintg.meds_query as mq
     import mepipelineappintg.coadd_query as cq
     import mepipelineappintg.mepochmisc as mepochmisc
+    import mepipelineappintg.metadetect_pizza_cutter_tools as mdetpizza
 
     svnid = "$Id: query_coadd_for_meds.py 48316 2019-03-01 20:00:27Z rgruendl $"
 
@@ -79,6 +81,10 @@ if __name__ == "__main__":
                         help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0,
                         help='Verbosity (defualt:0; currently values up to 4)')
+    parser.add_argument('--pizza-cutter-yaml', action='store', default=None,
+                        help='Path + Base Filename with metadetect pizza-cutter YAML information.')
+    parser.add_argument('--me_proctag', action='store', type=str, default=None,
+                        help='Multi-Epoch Processing Tag from which to draw MEDs inputs. Required for pizza cutter yaml generation.')
     args = parser.parse_args()
     if args.verbose:
         print("Args: ", args)
@@ -397,5 +403,32 @@ if __name__ == "__main__":
             print(f"Warning: No --psfmodel search requested.  Skipping write for --psf_list {args.psf_list:s}")
         else:
             mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, fields=['fullname', 'band'], verb=args.verbose)
+
+    if args.pizza_cutter_yaml:
+        tilename = mdetpizza.get_tilename_from_attempt(
+            PFWattemptID,
+            args.me_proctag,
+            dbh,
+            dbSchema,
+            Timing=True,
+            verbose=verbose,
+        )
+        coadd_data = {}
+        for band in ["r", "i", "z"]:
+            coadd_data[band] = mdetpizza.get_coadd_info_from_attempt(
+                tilename, band, PFWattemptID, args.me_proctag, dbh, dbSchema,
+                Timing=True, verbose=verbose,
+            )
+        yaml_data = mdetpizza.make_pizza_cutter_yaml(
+            PFWattemptID, tilename,
+            ImgDict, HeadDict, BkgDict, SegDict, PsfDict,
+            ["r", "i", "z"], coadd_data,
+        )
+
+        print(yaml.dump(coadd_data, default_flow_style=False))
+
+        for band in ["r", "i", "z"]:
+            with open(args.pizza_cutter_yaml + f"_{band}.yaml", "w") as fp:
+                fp.write(yaml.dump(yaml_data[band], default_flow_style=False))
 
     exit()
