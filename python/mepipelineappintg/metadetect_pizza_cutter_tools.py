@@ -12,6 +12,22 @@ def get_coadd_info_from_attempt(
 ):
     """Get coadd info from attemp ID.
 
+        Inputs:
+            tilename: The name of the tile.
+            band: the band as a string
+            AttemptID:  The AttemptID for which to extract a tilename.
+            ProcTag:   Proctag name containing set to be worked on
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            releasePrefix: Prefix string (including _'s) to identify a specific
+                           set of tables
+                           (Useful when working from releases in DESSCI).
+                           None --> will substitute a null string.
+            Timing:    Causes internal timing to report results.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            coadd_data: A dictionary containing the relevant coadd data.
     """
     if releasePrefix is None:
         relPrefix = ""
