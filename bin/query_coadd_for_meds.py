@@ -405,6 +405,7 @@ if __name__ == "__main__":
             mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, fields=['fullname', 'band'], verb=args.verbose)
 
     if args.pizza_cutter_yaml:
+        bands = args.bandlist.split(",")
         tilename = mdetpizza.get_tilename_from_attempt(
             PFWattemptID,
             args.me_proctag,
@@ -414,7 +415,7 @@ if __name__ == "__main__":
             verbose=verbose,
         )
         coadd_data = {}
-        for band in ["r", "i", "z"]:
+        for band in bands:
             coadd_data[band] = mdetpizza.get_coadd_info_from_attempt(
                 tilename, band, PFWattemptID, args.me_proctag, dbh, dbSchema,
                 Timing=True, verbose=verbose,
@@ -422,12 +423,10 @@ if __name__ == "__main__":
         yaml_data = mdetpizza.make_pizza_cutter_yaml(
             PFWattemptID, tilename,
             ImgDict, HeadDict, BkgDict, SegDict, PsfDict,
-            ["r", "i", "z"], coadd_data,
+            bands, coadd_data,
         )
 
-        print(yaml.dump(coadd_data, default_flow_style=False))
-
-        for band in ["r", "i", "z"]:
+        for band in bands:
             with open(args.pizza_cutter_yaml + f"_{band}.yaml", "w") as fp:
                 fp.write(yaml.dump(yaml_data[band], default_flow_style=False))
 

@@ -6,6 +6,38 @@ from mepipelineappintg.mepochmisc import get_root_archive
 MAGZP_REF = 30.0
 
 
+def _execute_query(query, dbh, verbose, Timing):
+    """actually execute a query"""
+    t0 = time.time()
+
+    if verbose > 0:
+        if verbose == 1:
+            QueryLines = query.split('\n')
+            QueryOneLine = 'sql = '
+            for line in QueryLines:
+                QueryOneLine = QueryOneLine + " " + line.strip()
+            print(f"{QueryOneLine:s}")
+        if verbose > 1:
+            print(f"{query:s}")
+    #
+    #   Establish a DB connection
+    #
+    curDB = dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    rowds = []
+    for row in curDB:
+        rowds.append(dict(zip(desc, row)))
+
+    if Timing:
+        t1 = time.time()
+        print(f"Query execution time: {t1 - t0:.2f}")
+    curDB.close()
+
+    return rowds
+
+
 def get_coadd_info_from_attempt(
     tilename, band, AttemptID, ProcTag, dbh, dbSchema, releasePrefix=None,
     Timing=False, verbose=0
@@ -34,7 +66,51 @@ def get_coadd_info_from_attempt(
     else:
         relPrefix = releasePrefix
 
-    t0 = time.time()
+    root_archive = get_root_archive(dbh, archive_name='desar2home', verb=verbose)
+
+    data = {}
+    for filetype in ["coadd", "coadd_segmap", "coadd_psfex_model"]:
+        if filetype == "coadd":
+            db_table = "coadd"
+        else:
+            db_table = "miscfile"
+
+        query = f"""SELECT
+                m.tilename as tilename,
+                fai.path as path,
+                fai.filename as filename,
+                fai.compression as compression,
+                m.band as band,
+                m.pfw_attempt_id as pfw_attempt_id
+            from
+                {dbSchema:s}{relPrefix:s}proctag t,
+                {dbSchema:s}{relPrefix:s}{db_table} m,
+                {dbSchema:s}{relPrefix:s}file_archive_info fai
+            where
+                t.tag='{ProcTag:s}'
+                and t.pfw_attempt_id=m.pfw_attempt_id
+                and m.tilename='{tilename:s}'
+                and m.band='{band:s}'
+                and m.filetype='{filetype:s}'
+                and fai.filename=m.filename
+                and fai.archive_name='desar2home'
+            """
+
+        rowds = _execute_query(query, dbh, verbose, Timing)
+        assert len(rowds) == 1
+        rowd = rowds[0]
+
+        if rowd["compression"] is None:
+            rowd["compression"] = ""
+
+        rowd["fullname"] = os.path.join(
+            root_archive,
+            rowd['path'],
+            rowd['filename'] + rowd['compression'],
+        )
+        data[filetype] = rowd
+
+    filetype = "coadd_cat"
     query = f"""SELECT
             m.tilename as tilename,
             fai.path as path,
@@ -44,57 +120,32 @@ def get_coadd_info_from_attempt(
             m.pfw_attempt_id as pfw_attempt_id
         from
             {dbSchema:s}{relPrefix:s}proctag t,
-            {dbSchema:s}{relPrefix:s}coadd m,
+            {dbSchema:s}{relPrefix:s}catalog m,
             {dbSchema:s}{relPrefix:s}file_archive_info fai
         where
             t.tag='{ProcTag:s}'
             and t.pfw_attempt_id=m.pfw_attempt_id
             and m.tilename='{tilename:s}'
             and m.band='{band:s}'
-            and m.filetype='coadd'
+            and m.filetype='{filetype:s}'
             and fai.filename=m.filename
             and fai.archive_name='desar2home'
         """
 
-    if verbose > 0:
-        if verbose == 1:
-            QueryLines = query.split('\n')
-            QueryOneLine = 'sql = '
-            for line in QueryLines:
-                QueryOneLine = QueryOneLine + " " + line.strip()
-            print(f"{QueryOneLine:s}")
-        if verbose > 1:
-            print(f"{query:s}")
-    #
-    #   Establish a DB connection
-    #
-    curDB = dbh.cursor()
-    curDB.execute(query)
-    desc = [d[0].lower() for d in curDB.description]
+    rowds = _execute_query(query, dbh, verbose, Timing)
+    assert len(rowds) == 1
+    rowd = rowds[0]
+    if rowd["compression"] is None:
+        rowd["compression"] = ""
 
-    for row in curDB:
-        rowd = dict(zip(desc, row))
-
-    if Timing:
-        t1 = time.time()
-        print(f" Query to find attempt execution time: {t1 - t0:.2f}")
-    curDB.close()
-
-    root_archive = get_root_archive(dbh, archive_name='desar2home', verb=verbose)
     rowd["fullname"] = os.path.join(
         root_archive,
         rowd['path'],
         rowd['filename'] + rowd['compression'],
     )
-    return rowd
+    data[filetype] = rowd
 
-
-def _get_alt_path_from_fullname(fullname, alt):
-    parts = fullname.split("/")
-    parts = parts[:-1]
-    assert parts[-1] == "coadd"
-    parts[-1] = alt
-    return "/".join(parts)
+    return data
 
 
 ######################################################################################
@@ -207,7 +258,7 @@ def get_tilename_from_attempt(
 
     if Timing:
         t1 = time.time()
-        print(f" Query to find attempt execution time: {t1 - t0:.2f}")
+        print(f" Query to find tilename execution time: {t1 - t0:.2f}")
     curDB.close()
 
     return attval
@@ -299,38 +350,25 @@ def make_pizza_cutter_yaml(
     """  # noqa
     total_data = {}
     for band in bands_to_write:
-        seg_dir = _get_alt_path_from_fullname(coadd_data[band]["fullname"], "seg")
-        psf_dir = _get_alt_path_from_fullname(coadd_data[band]["fullname"], "psf")
-        cat_dir = _get_alt_path_from_fullname(coadd_data[band]["fullname"], "psf")
-
         total_data[band] = {
             "band": band,
             "bmask_ext": "msk",
-            "bmask_path": coadd_data[band]["fullname"],
-            "cat_path": os.path.join(
-                cat_dir,
-                coadd_data[band]["filename"][:-len(".fits.fz")] + "_cat.fits",
-            ),
-            "compression": coadd_data[band]["compression"],
-            "filename": coadd_data[band]["filename"],
+            "bmask_path": coadd_data[band]["coadd"]["fullname"],
+            "cat_path": coadd_data[band]["coadd_cat"]["fullname"],
+            "compression": coadd_data[band]["coadd"]["compression"],
+            "filename": coadd_data[band]["coadd"]["filename"],
             "image_ext": "sci",
             "image_flags": 0,
-            "image_path": coadd_data[band]["fullname"],
+            "image_path": coadd_data[band]["coadd"]["fullname"],
             "image_shape": [10000, 10000],
             "magzp": MAGZP_REF,
-            "path": coadd_data[band]["path"],
+            "path": coadd_data[band]["coadd"]["path"],
             "pfw_attempt_id": pfw_attempt_id,
             "position_offset": 1,
-            "psf_path": os.path.join(
-                psf_dir,
-                coadd_data[band]["filename"][:-len(".fits.fz")] + "_psfcat.psf",
-            ),
+            "psf_path": coadd_data[band]["coadd_psfex_model"]["fullname"],
             "scale": 1.0,
             "seg_ext": "sci",
-            "seg_path": os.path.join(
-                seg_dir,
-                coadd_data[band]["filename"][:-len(".fits.fz")] + "_segmap.fits",
-            ),
+            "seg_path": coadd_data[band]["coadd_segmap"]["fullname"],
             "src_info": []
         }
 
