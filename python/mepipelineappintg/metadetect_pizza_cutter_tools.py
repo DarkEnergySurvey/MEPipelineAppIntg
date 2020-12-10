@@ -363,7 +363,7 @@ def make_pizza_cutter_yaml(
             "image_shape": [10000, 10000],
             "magzp": MAGZP_REF,
             "path": coadd_data[band]["coadd"]["path"],
-            "pfw_attempt_id": pfw_attempt_id,
+            "pfw_attempt_id": int(pfw_attempt_id),
             "position_offset": 1,
             "psf_path": coadd_data[band]["coadd_psfex_model"]["fullname"],
             "scale": 1.0,
@@ -395,7 +395,7 @@ def make_pizza_cutter_yaml(
                 "image_shape": [4096, 2048],
                 "magzp": img_dict[img]["mag_zero"],
                 "path": img_dict[img]["path"],
-                "pfw_attempt_id": pfw_attempt_id,
+                "pfw_attempt_id": int(pfw_attempt_id),
                 "piff_path": psf_dict[img]["fullname"],
                 "position_offset": 1,
                 # these are set to None and should not be needed
