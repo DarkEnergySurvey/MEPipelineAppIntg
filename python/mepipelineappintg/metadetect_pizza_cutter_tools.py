@@ -274,6 +274,7 @@ def make_pizza_cutter_yaml(
     Its format is
 
     ```yaml
+    tilename: DES2029-5457
     band: r
     bmask_ext: msk
     bmask_path: $MEDS_DIR/des-pizza-slices-y3-v02/DES2029-5457/sources-r/OPS/multiepoch/Y3A1/r2597/DES2029-5457/p01/coadd/DES2029-5457_r2597p01_r.fits.fz
@@ -351,6 +352,7 @@ def make_pizza_cutter_yaml(
     total_data = {}
     for band in bands_to_write:
         total_data[band] = {
+            "tilename": tilename,
             "band": band,
             "bmask_ext": "msk",
             "bmask_path": coadd_data[band]["coadd"]["fullname"],
