@@ -27,7 +27,7 @@ if __name__ == "__main__":
     svnid = "$Id: query_coadd_for_meds.py 48316 2019-03-01 20:00:27Z rgruendl $"
 
     parser = argparse.ArgumentParser(description='Query code to obtain image inputs for COADD/multiepoch pipelines.')
-    parser.add_argument('-A', '--pfw_attempt_id', action='store', type=str, required=True,
+    parser.add_argument('-A', '--pfw_attempt_id', action='store', type=str, default=None, required=False,
                         help='Processing attempt used to discover inputs.')
     parser.add_argument('-o', '--outfile', action='store', type=str, required=True,
                         help='Output list to be returned for the framework')
@@ -85,6 +85,8 @@ if __name__ == "__main__":
                         help='Path + Base Filename with metadetect pizza-cutter YAML information.')
     parser.add_argument('--me_proctag', action='store', type=str, default=None,
                         help='Multi-Epoch Processing Tag from which to draw MEDs inputs. Required for pizza cutter yaml generation.')
+    parser.add_argument('--tilename', action='store', type=str, default=None,
+                        help='Tilename (as an alternative to using -A to specify a COADD run, requires use of --me_proctag')
     args = parser.parse_args()
     if args.verbose:
         print("Args: ", args)
@@ -99,7 +101,15 @@ if __name__ == "__main__":
     else:
         dbSchema = f"{args.Schema}."
 
-    PFWattemptID = args.pfw_attempt_id
+    #
+    #   Check whether a PFW_ATTEMPT_ID was provided (or if one needs to be determined from --tilename --me_proctag)
+    #
+    if (args.pfw_attempt_id is None):
+        if (args.me_proctag is None)or(args.tilename is None):
+            print("Must provide either a PFW_ATTEMPT_ID (-A) or PROCTAG and TILENAME (--me_proctag --tilename)")
+            print("Aborting!")
+            exit(1)
+
     ArchiveSite = args.archive
     MagBase = args.magbase
 
@@ -229,6 +239,16 @@ if __name__ == "__main__":
         desdmfile = None
     dbh = despydb.desdbi.DesDbi(desdmfile, args.section, retry=True)
     #    cur = dbh.cursor()
+
+    if (args.pfw_attempt_id is None):
+        IntID = mq.query_attempt_from_tag_tile(args.me_proctag,args.tilename,dbh,dbSchema,verbose)
+        if (IntID is None):
+            print("Failed to obtain a PFW_ATTEMPT_ID so will not be able to identify a run to base inputs on")
+            print("Aborting")
+            exit(1)
+        PFWattemptID=str(IntID)
+    else:
+        PFWattemptID = args.pfw_attempt_id
 
     t0 = time.time()
     ImgDict, HeadDict = mq.query_imgs_from_attempt(PFWattemptID, dbh, dbSchema, verbose)
