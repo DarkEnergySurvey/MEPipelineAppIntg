@@ -171,3 +171,33 @@ def find_tile_attempt(TileName, ProcTag, dbh, dbSchema, releasePrefix=None, Timi
     curDB.close()
 
     return attval
+
+######################################################################################
+def read_target_path(tpath_file, verbose=0):
+    """ Read file that specifies relative paths for filetypes used on target machines"""
+
+    tpath_Dict={}
+
+    f1=open(tpath_file,'r')
+    if (verbose > 0):
+        print("File open: {:s}".format(tpath_file))
+    for line in f1:
+        line=line.strip()
+        columns=line.split(':')
+        if (columns[0].strip(" ")[0] != "#"):
+            tpath_Dict[columns[0].strip(" ")]=columns[1].strip(" ")
+    f1.close()
+    if (verbose > 0):
+        print("Read paths for {:d} filetype".format(len(tpath_Dict)))
+
+    return tpath_Dict
+
+######################################################################################
+def update_fullname(Dict,tpath):
+    """Update/create a 'fullname' entry that uses an updated tpath rather than archive path"""
+    for Img in Dict:
+        if (Dict[Img]['compression'] is None):
+            Dict[Img]['compression']=''
+        Dict[Img]['fullname']=tpath+'/'+Dict[Img]['filename']+Dict[Img]['compression']
+    return Dict
+
