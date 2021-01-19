@@ -83,6 +83,8 @@ if __name__ == "__main__":
                         help='Verbosity (defualt:0; currently values up to 4)')
     parser.add_argument('--pizza-cutter-yaml', action='store', default=None,
                         help='Path + Base Filename with metadetect pizza-cutter YAML information.')
+    parser.add_argument('--target_path', action='store', type=str, default=None,
+                        help='Config file, when present is used to override/replace archive filepaths with relative filepath on target machine.')
     parser.add_argument('--me_proctag', action='store', type=str, default=None,
                         help='Multi-Epoch Processing Tag from which to draw MEDs inputs. Required for pizza cutter yaml generation.')
     parser.add_argument('--tilename', action='store', type=str, default=None,
@@ -440,6 +442,45 @@ if __name__ == "__main__":
                 tilename, band, PFWattemptID, args.me_proctag, dbh, dbSchema,
                 Timing=True, verbose=verbose,
             )
+#
+#       For the case where pizza-cutter yaml is being generated for use on a target machine
+#           use values in config file args.target_path to override/replace fullpaths from 
+#           archive with appropriate paths on the target machine
+#
+        if (os.path.isfile(args.target_path)):
+            tpath_Dict = mepochmisc.read_target_path(args.target_path,verbose=verbose)
+            if (verbose > 0):
+                print("Adjusting filename paths to conform to target machine")
+            for band in bands:
+                for ftype in coadd_data[band]:
+                    if (ftype not in tpath_Dict):
+                        print("No target side path available for filetype={:s}".format(ftype))
+                        print(ftype,coadd_data[band][ftype]['fullname'])
+                    else:
+                        coadd_data[band][ftype]['fullname']=tpath_Dict[ftype]+'/'+coadd_data[band][ftype]['filename']+coadd_data[band][ftype]['compression']
+            for ftype in ['red_immask','red_segmap','coadd_head_scamp','red_bkg','piff_model','psfex_model']:
+                miss_ftype=False
+                if (ftype not in tpath_Dict):
+                    print("Target path specification for filetype: {:s} missing! Aborting!".format(ftype))
+                    miss_ftype=True
+                if (miss_ftype):
+                    exit(1)
+
+            ImgDict  = mepochmisc.update_fullname(ImgDict,tpath_Dict['red_immask']) 
+            HeadDict = mepochmisc.update_fullname(HeadDict,tpath_Dict['coadd_head_scamp']) 
+            BkgDict  = mepochmisc.update_fullname(BkgDict,tpath_Dict['red_bkg']) 
+            SegDict  = mepochmisc.update_fullname(SegDict,tpath_Dict['red_segmap']) 
+            if args.usepiff:
+                PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['piff_model']) 
+            else:
+                PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['psfex_model']) 
+
+#
+#       Go on and form pizza-cutter YAML
+#
+        if (verbose > 0):
+            print("Forming pizza-cutter YAML files")
+
         yaml_data = mdetpizza.make_pizza_cutter_yaml(
             PFWattemptID, tilename,
             ImgDict, HeadDict, BkgDict, SegDict, PsfDict,
