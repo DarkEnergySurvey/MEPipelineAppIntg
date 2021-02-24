@@ -27,6 +27,7 @@ def paste_files(file1, file2, output):
         hdr = f2.readline().strip()
         out.write(f"{red} {hdr} {zp}\n")
 
+
 def make_coadd_object_map(args):
     """ Writes out a map between the SExtractor NUMBER and COADD_OBJECT.ID
     """
@@ -124,7 +125,8 @@ if __name__ == "__main__":
                         help="The name of the coadd SExtractor ")
     parser.add_argument("--dryrun", action="store_true", default=False,
                         help="Print and exit?")
-
+    parser.add_argument("--psf_info", type=str, action="store", default=None, required=True,
+                        help="Fits file table with PIFF QA Table")
 
     # The keys to ignore when writing the yaml file
     ignore_args = ['dryrun', 'medsconf', 'db_section', 'coadd_object_tablename', 'hdr_flist', 'red_flist']
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     data = vars(args)
 
     # Make the coadd_objects maps if requested
-    #if args.coadd_object_map and not args.dryrun:
+    # if args.coadd_object_map and not args.dryrun:
     if args.coadd_object_map:
         make_coadd_object_map(args)
     else:
