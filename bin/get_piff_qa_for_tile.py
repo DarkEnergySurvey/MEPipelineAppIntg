@@ -1,8 +1,5 @@
 #! /usr/bin/env python3
-# $Id: get_piff_qa_for_tile.py
-# $Rev:: 48316                            $:  # Revision of last commit.
-# $LastChangedBy:: rgruendl               $:  # Author of last commit.
-# $LastCha
+
 """
 Query PIFF_MODEL_QA to obtain data relevant for the inputs to a specific tile and write as a FITS table
 """
@@ -86,8 +83,6 @@ if __name__ == "__main__":
         PFWattemptID = args.pfw_attempt_id
 
 
-    AOK=pq.get_piff_qa(args.output,args.piff_tag,PFWattemptID,dbh,dbSchema,verbose=verbose)
+    AOK = pq.get_piff_qa(args.output, args.piff_tag, PFWattemptID, dbh, dbSchema, verbose=verbose)
 
-    print(AOK)
-
-    exit()
+    print(f"# Exit status: {AOK}")

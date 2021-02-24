@@ -7,9 +7,9 @@ def get_piff_qa(fname,piff_tag,mAttID,dbh,dbSchema,verbose=0):
     """
 
     # Format and query with query2rec
-    QUERY = """select q.* from {schema:s}piff_model_qa q, {schema:s}proctag t, {schema:s}miscfile m, {schema:s}image i 
+    QUERY = """select q.* from {schema:s}piff_model_qa q, {schema:s}proctag t, {schema:s}miscfile m, {schema:s}image i
         where i.pfw_attempt_id={AID} and i.filetype='coadd_nwgint'
-            and t.tag='{ptag:s}' and t.pfw_attempt_id=m.pfw_attempt_id and m.filetype='piff_model' 
+            and t.tag='{ptag:s}' and t.pfw_attempt_id=m.pfw_attempt_id and m.filetype='piff_model'
             and i.ccdnum=m.ccdnum and i.expnum=m.expnum and m.filename=q.filename """.format(AID=mAttID,ptag=piff_tag,schema=dbSchema)
 
     print("# Will query: ")

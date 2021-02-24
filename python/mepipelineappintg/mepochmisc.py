@@ -24,7 +24,8 @@ def get_tile_info(indict):
 
 
 ######################################################################################
-def write_textlist(dbh, dict_input, outfile, archive_name='desar2home', fields=['fullname', 'band', 'expnum'], verb=None):
+def write_textlist(dbh, dict_input, outfile, archive_name='desar2home', sel_band=None,
+                   fields=['fullname', 'band', 'expnum'], verb=None):
     """ Write a simple ascii list from a dictionary """
 
     # Get root archive like: /archive_data/desarchive
@@ -39,17 +40,19 @@ def write_textlist(dbh, dict_input, outfile, archive_name='desar2home', fields=[
     for key in sorted(dict_input.keys()):
         val = dict_input[key]
 
-        for field in fields:
-            if field == 'fullname':
-                if val['compression'] is None:
-                    val['compression'] = ''
-                val['fullname'] = os.path.join(root_archive, val['path'], val['filename'] + val['compression'])
-            if field == 'pexpnum':
-                val['pexpnum'] = f"D{val['expnum']:08d}"
-            if field == 'ngmixid':
-                val['ngmixid'] = f"D{val['expnum']:08d}-{val['ccdnum']:02d}"
-            of.write(f"{val[field]} ")
-        of.write("\n")
+        # if we want a specific band, only select the val[band] == sel_band
+        if sel_band is None or val['band'] == sel_band:
+            for field in fields:
+                if field == 'fullname':
+                    if val['compression'] is None:
+                        val['compression'] = ''
+                    val['fullname'] = os.path.join(root_archive, val['path'], val['filename'] + val['compression'])
+                if field == 'pexpnum':
+                    val['pexpnum'] = f"D{val['expnum']:08d}"
+                if field == 'ngmixid':
+                    val['ngmixid'] = f"D{val['expnum']:08d}-{val['ccdnum']:02d}"
+                of.write(f"{val[field]} ")
+            of.write("\n")
     if verb:
         print(f"Wrote file: {outfile}")
 
@@ -200,4 +203,3 @@ def update_fullname(Dict,tpath):
             Dict[Img]['compression']=''
         Dict[Img]['fullname']=tpath+'/'+Dict[Img]['filename']+Dict[Img]['compression']
     return Dict
-

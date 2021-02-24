@@ -89,6 +89,8 @@ if __name__ == "__main__":
                         help='Multi-Epoch Processing Tag from which to draw MEDs inputs. Required for pizza cutter yaml generation.')
     parser.add_argument('--tilename', action='store', type=str, default=None,
                         help='Tilename (as an alternative to using -A to specify a COADD run, requires use of --me_proctag')
+    parser.add_argument('--sel_band', action='store', type=str, default=None,
+                        help='Only use sel_band on text list created')
     args = parser.parse_args()
     if args.verbose:
         print("Args: ", args)
@@ -407,24 +409,24 @@ if __name__ == "__main__":
 
     # Optional print a list of the location of the inputs
     if args.ima_list:
-        mepochmisc.write_textlist(dbh, ImgDict, args.ima_list, fields=['fullname', 'band', 'mag_zero'], verb=args.verbose)
+        mepochmisc.write_textlist(dbh, ImgDict, args.ima_list, sel_band=args.sel_band, fields=['fullname', 'mag_zero'], verb=args.verbose)
     if args.head_list:
-        mepochmisc.write_textlist(dbh, HeadDict, args.head_list, fields=['fullname', 'band'], verb=args.verbose)
+        mepochmisc.write_textlist(dbh, HeadDict, args.head_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.bkg_list:
         if not args.bkgimg:
             print(f"Warning: No --bkgimg search requested.  Skipping write for --bkg_list {args.bkg_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, BkgDict, args.bkg_list, fields=['fullname', 'band'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, BkgDict, args.bkg_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.seg_list:
         if not args.segmap:
             print(f"Warning: No --segmap search requested.  Skipping write for --seg_list {args.seg_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, SegDict, args.seg_list, fields=['fullname', 'band'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, SegDict, args.seg_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.psf_list:
         if not args.psfmodel:
             print(f"Warning: No --psfmodel search requested.  Skipping write for --psf_list {args.psf_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, fields=['fullname', 'band'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
 
     if args.pizza_cutter_yaml:
         bands = args.bandlist.split(",")
@@ -444,7 +446,7 @@ if __name__ == "__main__":
             )
 #
 #       For the case where pizza-cutter yaml is being generated for use on a target machine
-#           use values in config file args.target_path to override/replace fullpaths from 
+#           use values in config file args.target_path to override/replace fullpaths from
 #           archive with appropriate paths on the target machine
 #
         if (args.target_path is None):
@@ -470,14 +472,14 @@ if __name__ == "__main__":
                     if (miss_ftype):
                         exit(1)
 
-                ImgDict  = mepochmisc.update_fullname(ImgDict,tpath_Dict['red_immask']) 
-                HeadDict = mepochmisc.update_fullname(HeadDict,tpath_Dict['coadd_head_scamp']) 
-                BkgDict  = mepochmisc.update_fullname(BkgDict,tpath_Dict['red_bkg']) 
-                SegDict  = mepochmisc.update_fullname(SegDict,tpath_Dict['red_segmap']) 
+                ImgDict  = mepochmisc.update_fullname(ImgDict,tpath_Dict['red_immask'])
+                HeadDict = mepochmisc.update_fullname(HeadDict,tpath_Dict['coadd_head_scamp'])
+                BkgDict  = mepochmisc.update_fullname(BkgDict,tpath_Dict['red_bkg'])
+                SegDict  = mepochmisc.update_fullname(SegDict,tpath_Dict['red_segmap'])
                 if args.usepiff:
-                    PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['piff_model']) 
+                    PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['piff_model'])
                 else:
-                    PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['psfex_model']) 
+                    PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['psfex_model'])
 
 #
 #       Go on and form pizza-cutter YAML
