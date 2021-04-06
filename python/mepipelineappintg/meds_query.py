@@ -7,7 +7,7 @@ A set of queries to obtain inputs for the COADD pipeline.
 """
 
 ######################################################################################
-def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
+def query_imgs_from_attempt(attemptID, bands, dbh, dbSchema, verbose=0):
     """ Query code to obtain image inputs for COADD (based on a previous successful
         mulitepoch/COADD attempt.
 
@@ -18,6 +18,7 @@ def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
 
         Inputs:
             attemptID: Exisitng (completed through first block) attempt
+            bands:     List of bands (that should be included).
             dbh:       Database connection to be used
             dbSchema:  Schema over which queries will occur.
             verbose:   Integer setting level of verbosity when running.
@@ -66,15 +67,17 @@ def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
     for row in curDB:
         rowd = dict(zip(desc, row))
         ImgName = rowd['filename']
-        ImgDict[ImgName] = {}
-        HeadDict[ImgName] = {}
-        for key in ['filename', 'path', 'compression', 'band', 'expnum', 'ccdnum']:
-            ImgDict[ImgName][key] = rowd[key]
-        if rowd['mag_zero'] is not None:
-            ImgDict[ImgName]['mag_zero'] = rowd['mag_zero']
-        HeadDict[ImgName]['filename'] = rowd['headfile']
-        for key in ['band', 'expnum', 'ccdnum']:
-            HeadDict[ImgName][key] = rowd[key]
+        Band = rowd['band']
+        if (Band in bands):
+            ImgDict[ImgName] = {}
+            HeadDict[ImgName] = {}
+            for key in ['filename', 'path', 'compression', 'band', 'expnum', 'ccdnum']:
+                ImgDict[ImgName][key] = rowd[key]
+            if rowd['mag_zero'] is not None:
+                ImgDict[ImgName]['mag_zero'] = rowd['mag_zero']
+            HeadDict[ImgName]['filename'] = rowd['headfile']
+            for key in ['band', 'expnum', 'ccdnum']:
+                HeadDict[ImgName][key] = rowd[key]
 
 #
 #   Secondary query to get paths for Head Files

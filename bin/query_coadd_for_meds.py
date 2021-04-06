@@ -255,7 +255,8 @@ if __name__ == "__main__":
         PFWattemptID = args.pfw_attempt_id
 
     t0 = time.time()
-    ImgDict, HeadDict = mq.query_imgs_from_attempt(PFWattemptID, dbh, dbSchema, verbose)
+    bands = args.bandlist.split(",")
+    ImgDict, HeadDict = mq.query_imgs_from_attempt(PFWattemptID, bands, dbh, dbSchema, verbose)
     print(f"    Execution Time: {time.time() - t0:.2f}")
     print("    Img Dict size: ", len(ImgDict))
     print("    Head Dict size: ", len(HeadDict))
