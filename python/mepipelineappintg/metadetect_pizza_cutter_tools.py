@@ -265,7 +265,7 @@ def get_tilename_from_attempt(
 
 
 def make_pizza_cutter_yaml(
-    pfw_attempt_id, tilename,
+    pfw_attempt_id, tilename, gcat, 
     img_dict, head_dict, bkg_dict, seg_dict, psf_dict,
     bands_to_write, coadd_data,
 ):
@@ -335,6 +335,8 @@ def make_pizza_cutter_yaml(
         The attempt ID to use.
     tilename : str
         The name of the tile.
+    gcat: str
+        The filename/path of a GAIA input catalogs (FITS format) 
     img_dict : dict
     head_dict : dict
     bkg_dict : dict
@@ -373,6 +375,8 @@ def make_pizza_cutter_yaml(
             "seg_path": coadd_data[band]["coadd_segmap"]["fullname"],
             "src_info": []
         }
+        if (gcat is not None):
+            total_data[band]['gaia_stars_file']=gcat
 
         for img in img_dict:
             if (

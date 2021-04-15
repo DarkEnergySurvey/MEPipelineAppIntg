@@ -83,6 +83,8 @@ if __name__ == "__main__":
                         help='Verbosity (defualt:0; currently values up to 4)')
     parser.add_argument('--pizza-cutter-yaml', action='store', default=None,
                         help='Path + Base Filename with metadetect pizza-cutter YAML information.')
+    parser.add_argument('--gaia-cat', action='store', default=None,
+                        help='Path + Base Filename with GAIA source information (for pizza-cutter YAML).')
     parser.add_argument('--target_path', action='store', type=str, default=None,
                         help='Config file, when present is used to override/replace archive filepaths with relative filepath on target machine.')
     parser.add_argument('--me_proctag', action='store', type=str, default=None,
@@ -489,7 +491,7 @@ if __name__ == "__main__":
             print("Forming pizza-cutter YAML files")
 
         yaml_data = mdetpizza.make_pizza_cutter_yaml(
-            PFWattemptID, tilename,
+            PFWattemptID, tilename, args.gaia_cat, 
             ImgDict, HeadDict, BkgDict, SegDict, PsfDict,
             bands, coadd_data,
         )
