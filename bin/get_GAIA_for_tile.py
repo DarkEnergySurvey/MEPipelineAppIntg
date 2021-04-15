@@ -82,9 +82,19 @@ if __name__ == "__main__":
     GCol=['ra','dec','phot_g_mean_mag']
     GCat,GHead=cq.get_cat_radec_range(radec_box,dbh,dbSchema=dbSchema,table='GAIA_DR2',cols=GCol,verbose=args.verbose)
 
-
+    if (args.method == "fixed"):
+        hopt=[{'name':'TILENAME','value':args.tilename},
+              {'name':'EXPAND',  'value':args.extend, 'comment':'arcminutes'},
+              {'name':'METHOD',  'value':args.method},
+              {'name':'CATALOG', 'value':'GAIA_DR2'}]
+    else:
+        hopt=[{'name':'TILENAME','value':args.tilename},
+              {'name':'EXPAND',  'value':args.extend*100., 'comment':'percentage'},
+              {'name':'METHOD',  'value':args.method},
+              {'name':'CATALOG', 'value':'GAIA_DR2'}]
+            
    # Write a fits file with the record array
-    fitsio.write(args.output, GCat, extname='GAIA_OBJECT', clobber=True)
+    fitsio.write(args.output, GCat, header=hopt, extname='GAIA_OBJECT', clobber=True)
     print("# Wrote GAIA objects to: {ftab:s}".format(ftab=args.output))
 
 
