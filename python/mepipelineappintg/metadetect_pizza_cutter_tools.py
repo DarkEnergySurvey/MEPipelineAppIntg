@@ -1,5 +1,6 @@
 import os
 import time
+from functools import lru_cache
 
 from mepipelineappintg.mepochmisc import get_root_archive
 
@@ -36,6 +37,79 @@ def _execute_query(query, dbh, verbose, Timing):
     curDB.close()
 
     return rowds
+
+
+@lru_cache(maxsize=1024)
+def _do_piff_info_query(
+    dbh, verbose, Timing, expnum, PiffTag, relPrefix, dbSchema
+):
+    query = f"""SELECT
+                    DISTINCT
+                    qa.filename,
+                    qa.flag as desdm_flags,
+                    qa.fwhm_cen,
+                    qa.star_t_std,
+                    qa.star_t_mean,
+                    qa.nstar,
+                    qa.exp_star_t_mean,
+                    qa.exp_star_t_std
+                FROM
+                    {dbSchema:s}{relPrefix:s}proctag t,
+                    {dbSchema:s}{relPrefix:s}miscfile m,
+                    {dbSchema:s}{relPrefix:s}PIFF_MODEL_QA qa
+                where
+                    qa.expnum = {expnum:s}
+                    and t.tag = '{PiffTag:s}'
+                    and t.pfw_attempt_id = m.pfw_attempt_id
+                    and m.filetype = 'piff_model'
+                    and m.filename = qa.filename
+                """
+
+    return _execute_query(query, dbh, verbose, Timing)
+
+
+def add_piff_info_to_yaml(
+    yaml_data, PiffTag, dbh, dbSchema, releasePrefix=None,
+    Timing=False, verbose=0
+):
+    """Get coadd info from attemp ID.
+
+        Inputs:
+            yaml_data: the yaml data to adjust
+            PiffTag:   the Piff tag to use
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            releasePrefix: Prefix string (including _'s) to identify a specific
+                           set of tables
+                           (Useful when working from releases in DESSCI).
+                           None --> will substitute a null string.
+            Timing:    Causes internal timing to report results.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            coadd_data: A dictionary containing the relevant coadd data.
+    """
+    if releasePrefix is None:
+        relPrefix = ""
+    else:
+        relPrefix = releasePrefix
+
+    for band in yaml_data:
+        for isrc in range(len(yaml_data[band]["src_info"])):
+            expnum = yaml_data[band]["src_info"][isrc]["expnum"]
+            piff_rows = _do_piff_info_query(
+                dbh, verbose, Timing, expnum, PiffTag, relPrefix, dbSchema
+            )
+            piff_info = None
+            for row in piff_rows:
+                if (
+                    row["filename"]
+                    == os.path.basename(yaml_data[band]["src_info"][isrc]["piff_path"])
+                ):
+                    piff_info = row
+            if piff_info is None:
+                raise RuntimeError("could not find piff info for expnum %s" % expnum)
+            yaml_data[band]["src_info"][isrc]["piff_info"] = piff_info
 
 
 def get_coadd_info_from_attempt(
@@ -265,7 +339,7 @@ def get_tilename_from_attempt(
 
 
 def make_pizza_cutter_yaml(
-    pfw_attempt_id, tilename, gcat, 
+    pfw_attempt_id, tilename, gcat,
     img_dict, head_dict, bkg_dict, seg_dict, psf_dict,
     bands_to_write, coadd_data,
 ):
@@ -336,7 +410,7 @@ def make_pizza_cutter_yaml(
     tilename : str
         The name of the tile.
     gcat: str
-        The filename/path of a GAIA input catalogs (FITS format) 
+        The filename/path of a GAIA input catalogs (FITS format)
     img_dict : dict
     head_dict : dict
     bkg_dict : dict
@@ -376,7 +450,7 @@ def make_pizza_cutter_yaml(
             "src_info": []
         }
         if (gcat is not None):
-            total_data[band]['gaia_stars_file']=gcat
+            total_data[band]['gaia_stars_file'] = gcat
 
         for img in img_dict:
             if (
