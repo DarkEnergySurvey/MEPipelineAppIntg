@@ -58,7 +58,7 @@ def _do_piff_info_query(
                     {dbSchema:s}{relPrefix:s}miscfile m,
                     {dbSchema:s}{relPrefix:s}PIFF_MODEL_QA qa
                 where
-                    qa.expnum = {expnum:s}
+                    qa.expnum = {expnum:d}
                     and t.tag = '{PiffTag:s}'
                     and t.pfw_attempt_id = m.pfw_attempt_id
                     and m.filetype = 'piff_model'
