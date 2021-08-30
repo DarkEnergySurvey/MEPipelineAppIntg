@@ -491,10 +491,14 @@ if __name__ == "__main__":
             print("Forming pizza-cutter YAML files")
 
         yaml_data = mdetpizza.make_pizza_cutter_yaml(
-            PFWattemptID, tilename, args.gaia_cat, 
+            PFWattemptID, tilename, args.gaia_cat,
             ImgDict, HeadDict, BkgDict, SegDict, PsfDict,
             bands, coadd_data,
         )
+        if args.usepiff and args.pifftag:
+            mdetpizza.add_piff_info_to_yaml(
+                    yaml_data, args.pifftag, dbh, dbSchema, Timing=True, verbose=verbose
+                )
 
         for band in bands:
             with open(args.pizza_cutter_yaml + f"_{band}.yaml", "w") as fp:
