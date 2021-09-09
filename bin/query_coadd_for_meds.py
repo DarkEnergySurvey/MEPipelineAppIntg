@@ -455,6 +455,16 @@ if __name__ == "__main__":
         if (args.target_path is None):
             if (verbose > 0):
                 print("Using full archive paths in YAML generation")
+
+            # MRB: used for local testing - comment out when not needed
+            # ImgDict = mepochmisc.update_fullname(ImgDict, "JUNK")
+            # HeadDict = mepochmisc.update_fullname(HeadDict, "JUNK")
+            # BkgDict = mepochmisc.update_fullname(BkgDict, "JUNK")
+            # SegDict = mepochmisc.update_fullname(SegDict, "JUNK")
+            # if args.usepiff:
+            #     PsfDict = mepochmisc.update_fullname(PsfDict, "JUNK")
+            # else:
+            #     PsfDict = mepochmisc.update_fullname(PsfDict, "JUNK")
         else:
             if (os.path.isfile(args.target_path)):
                 tpath_Dict = mepochmisc.read_target_path(args.target_path,verbose=verbose)
@@ -494,6 +504,9 @@ if __name__ == "__main__":
             PFWattemptID, tilename, args.gaia_cat,
             ImgDict, HeadDict, BkgDict, SegDict, PsfDict,
             bands, coadd_data,
+        )
+        mdetpizza.add_coaddtile_geom(
+            yaml_data, tilename, dbh, dbSchema, Timing=True, verbose=verbose
         )
         if args.usepiff and args.pifftag:
             mdetpizza.add_piff_info_to_yaml(

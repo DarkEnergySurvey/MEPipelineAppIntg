@@ -39,6 +39,46 @@ def _execute_query(query, dbh, verbose, Timing):
     return rowds
 
 
+def add_coaddtile_geom(
+    yaml_data, tilename, dbh, dbSchema, releasePrefix=None,
+    Timing=False, verbose=0
+):
+    """Add coadd tile geom info to yaml data.
+
+        Inputs:
+            yaml_data: the yaml data to adjust
+            tilename: the tilename
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            releasePrefix: Prefix string (including _'s) to identify a specific
+                           set of tables
+                           (Useful when working from releases in DESSCI).
+                           None --> will substitute a null string.
+            Timing:    Causes internal timing to report results.
+            verbose:   Integer setting level of verbosity when running.
+
+    """
+    if releasePrefix is None:
+        relPrefix = ""
+    else:
+        relPrefix = releasePrefix
+
+    query = f"""SELECT
+                    cast(crossra0 as VARCHAR(1)) as crossra0,
+                    udecmin,
+                    udecmax,
+                    uramin,
+                    uramax
+                FROM
+                    {dbSchema:s}{relPrefix:s}coaddtile_geom ctg
+                WHERE
+                    ctg.tilename = '{tilename:s}'
+                """
+    res = _execute_query(query, dbh, verbose, Timing)
+    for band in yaml_data:
+        yaml_data[band].update(res[0])
+
+
 @lru_cache(maxsize=1024)
 def _do_piff_info_query(
     dbh, verbose, Timing, expnum, PiffTag, relPrefix, dbSchema
@@ -85,9 +125,6 @@ def add_piff_info_to_yaml(
                            None --> will substitute a null string.
             Timing:    Causes internal timing to report results.
             verbose:   Integer setting level of verbosity when running.
-
-        Returns:
-            coadd_data: A dictionary containing the relevant coadd data.
     """
     if releasePrefix is None:
         relPrefix = ""
