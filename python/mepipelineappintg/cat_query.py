@@ -13,20 +13,27 @@ import pandas as pd
 import numpy as np
 
 ########################################################################
-def query_Tile_edges(Tile,dbh,dbSchema='DES_ADMIN.',table='Y6A1_COADDTILE_GEOM',verbose=0):
+def query_Tile_edges(Tile,dbh,dbSchema='DES_ADMIN.',table='Y6A1_COADDTILE_GEOM',ubound=False,verbose=0):
     """ Pull tile edges from a COADDTILE_GEOM release table:
 
         Tile:       Name of Tile to poll for information.
         dbh:        Database connection to be used
         dbSchema:   DB schema (default='DES_ADMIN')
         table:      Name of coadd tile geometry table (default='Y6A1_COADDTILE_GEOM')
+        ubound:     Use unique area boundaries rather than tile edge.
         verbose:    Sets level of verbosity." 
 
         Return:     Dict with Tile for key containing information
     """
     
 
-    QUERY = """select tilename,racmin,racmax,deccmin,deccmax,crossra0 from {schema:s}{tbl:s} where tilename='{tname:s}'""".format(schema=dbSchema,tbl=table,tname=Tile)
+    if (ubound):
+        QUERY = """select tilename,uramin as racmin,uramax as racmax,udecmin as deccmin,udecmax as deccmax,crossra0 from {schema:s}{tbl:s} where tilename='{tname:s}'""".format(schema=dbSchema,tbl=table,tname=Tile)
+        if (verbose > 0):
+            print("Note: query is pulling a fast one.")
+            print("   Returning UNIQUE area columns (e.g. URAMIN) as if they were those describing total extent (e.g. RACMIN)")
+    else:
+        QUERY = """select tilename,racmin,racmax,deccmin,deccmax,crossra0 from {schema:s}{tbl:s} where tilename='{tname:s}'""".format(schema=dbSchema,tbl=table,tname=Tile)
 
     if (verbose>0):
         print("# Will query: ")
@@ -43,8 +50,8 @@ def query_Tile_edges(Tile,dbh,dbSchema='DES_ADMIN.',table='Y6A1_COADDTILE_GEOM',
         tile_data[TName]=rowd
 
     if (len(tile_data) < 1):
-        raise ValueError("ERROR: Query to {rel:s}_COADDTILE_GEOM returned no entries corrseponding to {tname:s}".format(
-            rel=release,tname=Tile))
+        raise ValueError("ERROR: Query to {schema:s}{tbl:s} returned no entries corrseponding to {tname:s}".format(
+            schema=dbSchema,tbl=table,tname=Tile))
     else:
         print("# Sucessfull query for {schema:s}{tbl:s}".format(schema=dbSchema,tbl=table))
 
