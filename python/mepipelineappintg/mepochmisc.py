@@ -24,7 +24,8 @@ def get_tile_info(indict):
 
 
 ######################################################################################
-def write_textlist(dbh, dict_input, outfile, archive_name='desar2home', fields=['fullname', 'band', 'expnum'], verb=None):
+def write_textlist(dbh, dict_input, outfile, archive_name='desar2home', sel_band=None,
+                   fields=['fullname', 'band', 'expnum'], verb=None):
     """ Write a simple ascii list from a dictionary """
 
     # Get root archive like: /archive_data/desarchive
@@ -39,17 +40,19 @@ def write_textlist(dbh, dict_input, outfile, archive_name='desar2home', fields=[
     for key in sorted(dict_input.keys()):
         val = dict_input[key]
 
-        for field in fields:
-            if field == 'fullname':
-                if val['compression'] is None:
-                    val['compression'] = ''
-                val['fullname'] = os.path.join(root_archive, val['path'], val['filename'] + val['compression'])
-            if field == 'pexpnum':
-                val['pexpnum'] = f"D{val['expnum']:08d}"
-            if field == 'ngmixid':
-                val['ngmixid'] = f"D{val['expnum']:08d}-{val['ccdnum']:02d}"
-            of.write(f"{val[field]} ")
-        of.write("\n")
+        # if we want a specific band, only select the val[band] == sel_band
+        if sel_band is None or val['band'] == sel_band:
+            for field in fields:
+                if field == 'fullname':
+                    if val['compression'] is None:
+                        val['compression'] = ''
+                    val['fullname'] = os.path.join(root_archive, val['path'], val['filename'] + val['compression'])
+                if field == 'pexpnum':
+                    val['pexpnum'] = f"D{val['expnum']:08d}"
+                if field == 'ngmixid':
+                    val['ngmixid'] = f"D{val['expnum']:08d}-{val['ccdnum']:02d}"
+                of.write(f"{val[field]} ")
+            of.write("\n")
     if verb:
         print(f"Wrote file: {outfile}")
 
@@ -171,3 +174,32 @@ def find_tile_attempt(TileName, ProcTag, dbh, dbSchema, releasePrefix=None, Timi
     curDB.close()
 
     return attval
+
+######################################################################################
+def read_target_path(tpath_file, verbose=0):
+    """ Read file that specifies relative paths for filetypes used on target machines"""
+
+    tpath_Dict={}
+
+    f1=open(tpath_file,'r')
+    if (verbose > 0):
+        print("File open: {:s}".format(tpath_file))
+    for line in f1:
+        line=line.strip()
+        columns=line.split(':')
+        if (columns[0].strip(" ")[0] != "#"):
+            tpath_Dict[columns[0].strip(" ")]=columns[1].strip(" ")
+    f1.close()
+    if (verbose > 0):
+        print("Read paths for {:d} filetype".format(len(tpath_Dict)))
+
+    return tpath_Dict
+
+######################################################################################
+def update_fullname(Dict,tpath):
+    """Update/create a 'fullname' entry that uses an updated tpath rather than archive path"""
+    for Img in Dict:
+        if (Dict[Img]['compression'] is None):
+            Dict[Img]['compression']=''
+        Dict[Img]['fullname']=tpath+'/'+Dict[Img]['filename']+Dict[Img]['compression']
+    return Dict

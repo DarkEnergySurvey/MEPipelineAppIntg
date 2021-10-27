@@ -17,15 +17,17 @@ def main():
     import os
     import despydb.desdbi
     import time
+    import yaml
     import intgutils.queryutils as queryutils
     import mepipelineappintg.meds_query as mq
     import mepipelineappintg.coadd_query as cq
     import mepipelineappintg.mepochmisc as mepochmisc
+    import mepipelineappintg.metadetect_pizza_cutter_tools as mdetpizza
 
     svnid = "$Id: query_coadd_for_meds.py 48316 2019-03-01 20:00:27Z rgruendl $"
 
     parser = argparse.ArgumentParser(description='Query code to obtain image inputs for COADD/multiepoch pipelines.')
-    parser.add_argument('-A', '--pfw_attempt_id', action='store', type=str, required=True,
+    parser.add_argument('-A', '--pfw_attempt_id', action='store', type=str, default=None, required=False,
                         help='Processing attempt used to discover inputs.')
     parser.add_argument('-o', '--outfile', action='store', type=str, required=True,
                         help='Output list to be returned for the framework')
@@ -79,6 +81,18 @@ def main():
                         help='DB schema (do not include \'.\').')
     parser.add_argument('-v', '--verbose', action='store', type=int, default=0,
                         help='Verbosity (defualt:0; currently values up to 4)')
+    parser.add_argument('--pizza-cutter-yaml', action='store', default=None,
+                        help='Path + Base Filename with metadetect pizza-cutter YAML information.')
+    parser.add_argument('--gaia-cat', action='store', default=None,
+                        help='Path + Base Filename with GAIA source information (for pizza-cutter YAML).')
+    parser.add_argument('--target_path', action='store', type=str, default=None,
+                        help='Config file, when present is used to override/replace archive filepaths with relative filepath on target machine.')
+    parser.add_argument('--me_proctag', action='store', type=str, default=None,
+                        help='Multi-Epoch Processing Tag from which to draw MEDs inputs. Required for pizza cutter yaml generation.')
+    parser.add_argument('--tilename', action='store', type=str, default=None,
+                        help='Tilename (as an alternative to using -A to specify a COADD run, requires use of --me_proctag')
+    parser.add_argument('--sel_band', action='store', type=str, default=None,
+                        help='Only use sel_band on text list created')
     args = parser.parse_args()
     if args.verbose:
         print("Args: ", args)
@@ -93,7 +107,15 @@ def main():
     else:
         dbSchema = f"{args.Schema}."
 
-    PFWattemptID = args.pfw_attempt_id
+    #
+    #   Check whether a PFW_ATTEMPT_ID was provided (or if one needs to be determined from --tilename --me_proctag)
+    #
+    if (args.pfw_attempt_id is None):
+        if (args.me_proctag is None)or(args.tilename is None):
+            print("Must provide either a PFW_ATTEMPT_ID (-A) or PROCTAG and TILENAME (--me_proctag --tilename)")
+            print("Aborting!")
+            exit(1)
+
     ArchiveSite = args.archive
     MagBase = args.magbase
 
@@ -224,8 +246,19 @@ def main():
     dbh = despydb.desdbi.DesDbi(desdmfile, args.section, retry=True)
     #    cur = dbh.cursor()
 
+    if (args.pfw_attempt_id is None):
+        IntID = mq.query_attempt_from_tag_tile(args.me_proctag,args.tilename,dbh,dbSchema,verbose)
+        if (IntID is None):
+            print("Failed to obtain a PFW_ATTEMPT_ID so will not be able to identify a run to base inputs on")
+            print("Aborting")
+            exit(1)
+        PFWattemptID=str(IntID)
+    else:
+        PFWattemptID = args.pfw_attempt_id
+
     t0 = time.time()
-    ImgDict, HeadDict = mq.query_imgs_from_attempt(PFWattemptID, dbh, dbSchema, verbose)
+    bands = args.bandlist.split(",")
+    ImgDict, HeadDict = mq.query_imgs_from_attempt(PFWattemptID, bands, dbh, dbSchema, verbose)
     print(f"    Execution Time: {time.time() - t0:.2f}")
     print("    Img Dict size: ", len(ImgDict))
     print("    Head Dict size: ", len(HeadDict))
@@ -379,24 +412,110 @@ def main():
 
     # Optional print a list of the location of the inputs
     if args.ima_list:
-        mepochmisc.write_textlist(dbh, ImgDict, args.ima_list, fields=['fullname', 'band', 'mag_zero'], verb=args.verbose)
+        mepochmisc.write_textlist(dbh, ImgDict, args.ima_list, sel_band=args.sel_band, fields=['fullname', 'mag_zero'], verb=args.verbose)
     if args.head_list:
-        mepochmisc.write_textlist(dbh, HeadDict, args.head_list, fields=['fullname', 'band'], verb=args.verbose)
+        mepochmisc.write_textlist(dbh, HeadDict, args.head_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.bkg_list:
         if not args.bkgimg:
             print(f"Warning: No --bkgimg search requested.  Skipping write for --bkg_list {args.bkg_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, BkgDict, args.bkg_list, fields=['fullname', 'band'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, BkgDict, args.bkg_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.seg_list:
         if not args.segmap:
             print(f"Warning: No --segmap search requested.  Skipping write for --seg_list {args.seg_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, SegDict, args.seg_list, fields=['fullname', 'band'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, SegDict, args.seg_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.psf_list:
         if not args.psfmodel:
             print(f"Warning: No --psfmodel search requested.  Skipping write for --psf_list {args.psf_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, fields=['fullname', 'band'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
+
+    if args.pizza_cutter_yaml:
+        bands = args.bandlist.split(",")
+        tilename = mdetpizza.get_tilename_from_attempt(
+            PFWattemptID,
+            args.me_proctag,
+            dbh,
+            dbSchema,
+            Timing=True,
+            verbose=verbose,
+        )
+        coadd_data = {}
+        for band in bands:
+            coadd_data[band] = mdetpizza.get_coadd_info_from_attempt(
+                tilename, band, PFWattemptID, args.me_proctag, dbh, dbSchema,
+                Timing=True, verbose=verbose,
+            )
+#
+#       For the case where pizza-cutter yaml is being generated for use on a target machine
+#           use values in config file args.target_path to override/replace fullpaths from
+#           archive with appropriate paths on the target machine
+#
+        if (args.target_path is None):
+            if (verbose > 0):
+                print("Using full archive paths in YAML generation")
+
+            # MRB: used for local testing - comment out when not needed
+            # ImgDict = mepochmisc.update_fullname(ImgDict, "JUNK")
+            # HeadDict = mepochmisc.update_fullname(HeadDict, "JUNK")
+            # BkgDict = mepochmisc.update_fullname(BkgDict, "JUNK")
+            # SegDict = mepochmisc.update_fullname(SegDict, "JUNK")
+            # if args.usepiff:
+            #     PsfDict = mepochmisc.update_fullname(PsfDict, "JUNK")
+            # else:
+            #     PsfDict = mepochmisc.update_fullname(PsfDict, "JUNK")
+        else:
+            if (os.path.isfile(args.target_path)):
+                tpath_Dict = mepochmisc.read_target_path(args.target_path,verbose=verbose)
+                if (verbose > 0):
+                    print("Adjusting filename paths to conform to target machine in YAML generation")
+                for band in bands:
+                    for ftype in coadd_data[band]:
+                        if (ftype not in tpath_Dict):
+                            print("No target side path available for filetype={:s}".format(ftype))
+                            print(ftype,coadd_data[band][ftype]['fullname'])
+                        else:
+                            coadd_data[band][ftype]['fullname']=tpath_Dict[ftype]+'/'+coadd_data[band][ftype]['filename']+coadd_data[band][ftype]['compression']
+                for ftype in ['red_immask','red_segmap','coadd_head_scamp','red_bkg','piff_model','psfex_model']:
+                    miss_ftype=False
+                    if (ftype not in tpath_Dict):
+                        print("Target path specification for filetype: {:s} missing! Aborting!".format(ftype))
+                        miss_ftype=True
+                    if (miss_ftype):
+                        exit(1)
+
+                ImgDict  = mepochmisc.update_fullname(ImgDict,tpath_Dict['red_immask'])
+                HeadDict = mepochmisc.update_fullname(HeadDict,tpath_Dict['coadd_head_scamp'])
+                BkgDict  = mepochmisc.update_fullname(BkgDict,tpath_Dict['red_bkg'])
+                SegDict  = mepochmisc.update_fullname(SegDict,tpath_Dict['red_segmap'])
+                if args.usepiff:
+                    PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['piff_model'])
+                else:
+                    PsfDict = mepochmisc.update_fullname(PsfDict,tpath_Dict['psfex_model'])
+
+#
+#       Go on and form pizza-cutter YAML
+#
+        if (verbose > 0):
+            print("Forming pizza-cutter YAML files")
+
+        yaml_data = mdetpizza.make_pizza_cutter_yaml(
+            PFWattemptID, tilename, args.gaia_cat,
+            ImgDict, HeadDict, BkgDict, SegDict, PsfDict,
+            bands, coadd_data,
+        )
+        mdetpizza.add_coaddtile_geom(
+            yaml_data, tilename, dbh, dbSchema, Timing=True, verbose=verbose
+        )
+        if args.usepiff and args.pifftag:
+            mdetpizza.add_piff_info_to_yaml(
+                    yaml_data, args.pifftag, dbh, dbSchema, Timing=True, verbose=verbose
+                )
+
+        for band in bands:
+            with open(args.pizza_cutter_yaml + f"_{band}.yaml", "w") as fp:
+                fp.write(yaml.dump(yaml_data[band], default_flow_style=False))
 
     exit()
 

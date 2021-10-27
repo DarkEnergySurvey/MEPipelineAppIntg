@@ -3,7 +3,7 @@ A set of queries to obtain inputs for the COADD pipeline.
 """
 
 ######################################################################################
-def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
+def query_imgs_from_attempt(attemptID, bands, dbh, dbSchema, verbose=0):
     """ Query code to obtain image inputs for COADD (based on a previous successful
         mulitepoch/COADD attempt.
 
@@ -14,6 +14,7 @@ def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
 
         Inputs:
             attemptID: Exisitng (completed through first block) attempt
+            bands:     List of bands (that should be included).
             dbh:       Database connection to be used
             dbSchema:  Schema over which queries will occur.
             verbose:   Integer setting level of verbosity when running.
@@ -62,15 +63,17 @@ def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
     for row in curDB:
         rowd = dict(zip(desc, row))
         ImgName = rowd['filename']
-        ImgDict[ImgName] = {}
-        HeadDict[ImgName] = {}
-        for key in ['filename', 'path', 'compression', 'band', 'expnum', 'ccdnum']:
-            ImgDict[ImgName][key] = rowd[key]
-        if rowd['mag_zero'] is not None:
-            ImgDict[ImgName]['mag_zero'] = rowd['mag_zero']
-        HeadDict[ImgName]['filename'] = rowd['headfile']
-        for key in ['band', 'expnum', 'ccdnum']:
-            HeadDict[ImgName][key] = rowd[key]
+        Band = rowd['band']
+        if (Band in bands):
+            ImgDict[ImgName] = {}
+            HeadDict[ImgName] = {}
+            for key in ['filename', 'path', 'compression', 'band', 'expnum', 'ccdnum']:
+                ImgDict[ImgName][key] = rowd[key]
+            if rowd['mag_zero'] is not None:
+                ImgDict[ImgName]['mag_zero'] = rowd['mag_zero']
+            HeadDict[ImgName]['filename'] = rowd['headfile']
+            for key in ['band', 'expnum', 'ccdnum']:
+                HeadDict[ImgName][key] = rowd[key]
 
 #
 #   Secondary query to get paths for Head Files
@@ -122,3 +125,58 @@ def query_imgs_from_attempt(attemptID, dbh, dbSchema, verbose=0):
             print(f"Warning: No entry in FILE_ARCHIVE_INFO found for {HeadDict[Img]['filename']:s}")
 
     return ImgDict, HeadDict
+
+
+######################################################################################
+def query_attempt_from_tag_tile(ProcTag, TileName, dbh, dbSchema, verbose=0):
+    """ Query code to obtain an attempt ID given a tag and tilename
+
+        Uses an existing DB connection to execute a query
+        Returns a PFW_ATTEMPT_ID (or None)
+        Note that for this use the PFW_ATTEMPT_ID returned will be an INT type so 
+            for some uses a subsequent conversion to a str type may be necessary
+
+        Inputs:
+            ProcTag:   Tag name to use for query
+            TileName:  Tile name to use for query
+            dbh:       Database connection to be used
+            dbSchema:  Schema over which queries will occur.
+            verbose:   Integer setting level of verbosity when running.
+
+        Returns:
+            attemptID: PFW_ATTEMPT_ID (or NoneType if failed)
+    """
+#
+#
+    query = f"""SELECT t.pfw_attempt_id
+    FROM {dbSchema:s}proctag t, {dbSchema:s}pfw_attempt_val av
+    WHERE t.tag='{ProcTag:s}'
+        and t.pfw_attempt_id=av.pfw_attempt_id
+        and av.key='tilename'
+        and av.val='{TileName:s}'
+        """
+
+    if verbose > 0:
+        print("# Executing query to obtain PFW_ATTEMPT_ID)")
+        if verbose == 1:
+            print(f"# sql = " + ' '.join([d.strip() for d in query.split('\n')]))
+        if verbose > 1:
+            print(f"# sql = {query:s}")
+    curDB = dbh.cursor()
+    curDB.execute(query)
+    desc = [d[0].lower() for d in curDB.description]
+
+    attemptID=None 
+    for row in curDB:
+        rowd = dict(zip(desc, row))
+        attemptID=rowd['pfw_attempt_id']
+
+#
+#   Give warning if no value was found.
+#
+    if (attemptID is None):
+        print("Warning: No PFW_ATTEMPT_ID (i.e. no run) identified for tag={:s} and tilename{:s}".format(ProcTag,TileName)) 
+
+    return attemptID
+
+
