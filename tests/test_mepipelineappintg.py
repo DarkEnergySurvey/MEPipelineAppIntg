@@ -48,6 +48,7 @@ rfmf = importer('run_fitvd-make-fofs')
 rfc = importer('run_fitvd-collate')
 rfd = importer('run_fitvd')
 rdm = importer('run_desmeds')
+qet = importer('query_expcat_for_tile.py')
 
 @contextmanager
 def capture_output():
@@ -482,11 +483,11 @@ port    =   0
     def test_query_imgs_from_attempt(self):
         dbh = desdbi.DesDbi(self.sfile, 'db-test')
         with capture_output() as (out, _):
-            imd, hd = mq.query_imgs_from_attempt('2309774', dbh, '')
+            imd, hd = mq.query_imgs_from_attempt('2309774', ['g', 'r', 'i', 'z', 'Y'], dbh, '')
             output = out.getvalue().strip()
             self.assertTrue('No entry' in output)
             self.assertEqual(len(imd), len(hd))
-            self.assertEqual(len(imd), 422)
+            self.assertEqual(len(imd), 381)
             count = 0
             for img in hd.keys():
                 if 'path' not in hd[img]:
@@ -494,12 +495,12 @@ port    =   0
             self.assertEqual(count, 1)
 
         with capture_output() as (out, _):
-            imd, hd = mq.query_imgs_from_attempt('2309774', dbh, '', verbose=1)
+            imd, hd = mq.query_imgs_from_attempt('2309774', ['g', 'r', 'i', 'z', 'Y'], dbh, '', verbose=1)
             output = out.getvalue().strip()
             self.assertTrue('sql =' in output)
 
         with capture_output() as (out, _):
-            imd, hd = mq.query_imgs_from_attempt('2309774', dbh, '', verbose=2)
+            imd, hd = mq.query_imgs_from_attempt('2309774', ['g', 'r', 'i', 'z', 'Y'], dbh, '', verbose=2)
             output = out.getvalue().strip()
             self.assertTrue('sql =' in output)
 
@@ -1554,6 +1555,74 @@ port    =   0
                                   '--services', 'services.ini'])
         self.assertRaises(ValueError, rdm.make_coadd_object_map, args)
 
+    #def test_main(self):
+    #    temp = copy.deepcopy(sys.argv)
+    #    sys.argv = ['run_desmeds',
+    #                '--band', 'g',
+    #                '--coadd_cat', 'testfile_r.fits',
+    #                '--coadd_object_tablename', 'coadd_object',
+    #                '--coadd_object_map', filename,
+    #                '--db_section', 'db-test',
+    #                '--services', 'services.ini']
 
+class Test_query_expcat_for_tile(TestGeneral):
+    def test_parse_command_line(self):
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = ['query_expcat_for_tile',
+                    '--tile', 'TestTile',
+                    '--runtag', 'TestTag',
+                    '--ccdlist', '1,2,3,4,5,6',
+                    '--qoutfile', 'testfile',
+                    '--red2tile-schema', '']
+        vals = qet.parse_command_line()
+        self.assertEqual('TestTile', vals['tile'])
+        self.assertEqual(None, vals['exptag'])
+        sys.argv = temp
+
+    def test_create_sql_query(self):
+        dbh = desdbi.DesDbi(self.sfile, 'db-test')
+        temp = copy.deepcopy(sys.argv)
+        sys.argv = ['query_expcat_for_tile',
+                    '--tile', 'TestTile',
+                    '--ccdlist', '1,2,3,4,5,6',
+                    '--qoutfile', 'testfile',
+                    '--red2tile-schema', '']
+        args = qet.parse_command_line()
+        sql, params = qet.create_sql_query(dbh, args)
+        self.assertTrue('rt.tile' in sql)
+        self.assertTrue('tile' in params.keys())
+        self.assertFalse('runtag' in params.keys())
+        sys.argv = ['query_expcat_for_tile',
+                    '--tile', 'TestTile',
+                    '--runtag', 'TestTag',
+                    '--ccdlist', '1,2,3,4,5,6',
+                    '--qoutfile', 'testfile',
+                    '--red2tile-schema', '']
+        args = qet.parse_command_line()
+        sql, params = qet.create_sql_query(dbh, args)
+        self.assertTrue('rt.tile' in sql)
+        self.assertTrue('tile' in params.keys())
+        self.assertEqual(args['tile'], params['tile'])
+        self.assertTrue('runtag' in params.keys())
+        self.assertEqual(args['runtag'], params['runtag'])
+        sys.argv = temp
+
+    #def test_run_query(self):
+    #    dbh = desdbi.DesDbi(self.sfile, 'db-test')
+    #    temp = copy.deepcopy(sys.argv)
+    #    sys.argv = ['query_expcat_for_tile',
+    #                '--tile', 'TestTile',
+    #                '--runtag', 'TestTag',
+    #                '--ccdlist', '1,2,3,4,5,6',
+    #                '--qoutfile', 'testfile',
+    #                '--red2tile-schema', '']
+    #    args = qet.parse_command_line()
+    #    sql, params = qet.create_sql_query(dbh, args)
+    #    flist = qet.run_query(dbh, sql, params)
+    #    self.assertEqual(0, len(flist))
+    #    sys.argv = temp
+
+#class Test_query_coass_meds_standalone(TestGeneral):
+#    def test_
 if __name__ == '__main__':
     unittest.main()
