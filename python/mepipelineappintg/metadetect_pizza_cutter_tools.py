@@ -96,7 +96,7 @@ def _do_piff_info_query(
                 FROM
                     {dbSchema:s}{relPrefix:s}proctag t,
                     {dbSchema:s}{relPrefix:s}miscfile m,
-                    {dbSchema:s}{relPrefix:s}PIFF_MODEL_QA qa
+                    {dbSchema:s}{relPrefix:s}PIFF_HSM_MODEL_QA qa
                 where
                     qa.expnum = {expnum:d}
                     and t.tag = '{PiffTag:s}'
