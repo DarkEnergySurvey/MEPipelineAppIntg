@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-Query PIFF_MODEL_QA to obtain data relevant for the inputs to a specific tile and write as a FITS table
+Query PIFF_HSM_MODEL_QA to obtain data relevant for the inputs to a specific tile and write as a FITS table
 """
 
 verbose = 0
