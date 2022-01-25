@@ -125,7 +125,7 @@ if __name__ == "__main__":
                         help="The name of the coadd SExtractor ")
     parser.add_argument("--dryrun", action="store_true", default=False,
                         help="Print and exit?")
-    parser.add_argument("--psf_info", type=str, action="store", default=None, required=True,
+    parser.add_argument("--psf_info", type=str, action="store", default=None, required=False,
                         help="Fits file table with PIFF QA Table")
 
     # The keys to ignore when writing the yaml file
