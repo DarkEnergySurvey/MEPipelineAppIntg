@@ -38,8 +38,8 @@ def make_coadd_object_map(args):
     # Get a dbh handle to query
     dbh = desdbi.DesDbi(section=args.db_section, retry=True)
     # Format and query with query2rec
-    # RAG updated query to return color information
-    QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color,g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by object_number"
+    # RAG updated query to return color information (2nd update adds multi-color info)
+    QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color, i.mag_auto-z.mag_auto as iz_color, g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr, z.mag_auto as z_mag, z.magerr_auto as z_magerr from {tablename} c, {tablename} g, {tablename} i, {tablename} z where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' and c.id=z.id and z.band='z' order by object_number"
     print("# Will query: ")
     print(QUERY_MAP)
     map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
@@ -51,7 +51,7 @@ def make_coadd_object_map(args):
         tablename = 'COADD_OBJECT_SAVE'
 
         # QUERY_MAP = "select OBJECT_NUMBER,ID from %s where FILENAME='%s' order by object_number" % (tablename,catname)
-        QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color,g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr from {tablename} c, {tablename} g, {tablename} i where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' order by object_number"
+        QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color, i.mag_auto-z.mag_auto as iz_color, g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr, z.mag_auto as z_mag, z.magerr_auto as z_magerr from {tablename} c, {tablename} g, {tablename} i, {tablename} z where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' and c.id=z.id and z.band='z' order by object_number"
         print(f"# WARNING: Query to {tablename} returned no objects, cannot create coadd_object map")
         print(f"# Will try now {tablename}")
         print(QUERY_MAP)
@@ -64,15 +64,38 @@ def make_coadd_object_map(args):
     else:
         print(f"# Sucessfull query to {tablename}")
 
-    # Add sentinel values for GI_COLOR for cases where g_mag or i_mag are sentinels
+    # Add sentinel values for GI_COLOR, IZ_COLOR for cases where g_mag, i_mag, z_mag are sentinels
+    # Note.... could add YAML reader and get color ranges from to set bounded values rather than sentinels
+    # Currently setting +/- 10 for red/blue limits and 99. for non-valued...
 
     wsm = np.where(np.logical_or(map_data['G_MAG'] > 98., map_data['I_MAG'] > 98.))
-    print(f"Adding sentinel values for color for {map_data['GI_COLOR'][wsm].size:d} of {map_data['GI_COLOR'].size:d} objects")
+    print(f"Adding sentinel values for g-i color for {map_data['GI_COLOR'][wsm].size:d} of {map_data['GI_COLOR'].size:d} objects")
+    wsm = np.where(map_data['G_MAG'] > 98.)
+    map_data['GI_COLOR'][wsm] = 10.
+    wsm = np.where(map_data['I_MAG'] > 98.)
+    map_data['GI_COLOR'][wsm] = -10.
+    wsm = np.where(np.logical_and(map_data['G_MAG'] > 98., map_data['I_MAG'] > 98.))
     map_data['GI_COLOR'][wsm] = 99.
+
+    wsm = np.where(np.logical_or(map_data['I_MAG'] > 98., map_data['Z_MAG'] > 98.))
+    print(f"Adding sentinel values for i-z color for {map_data['IZ_COLOR'][wsm].size:d} of {map_data['IZ_COLOR'].size:d} objects")
+    wsm = np.where(map_data['I_MAG'] > 98.)
+    map_data['IZ_COLOR'][wsm] = 10.
+    wsm = np.where(map_data['Z_MAG'] > 98.)
+    map_data['IZ_COLOR'][wsm] = -10.
+    wsm = np.where(np.logical_and(map_data['I_MAG'] > 98., map_data['Z_MAG'] > 98.))
+    map_data['IZ_COLOR'][wsm] = 99.
+
+    wsm = np.where(np.logical_and(map_data['I_MAG'] > 98.,np.logical_and(map_data['G_MAG'] < 98.,map_data['Z_MAG'] < 98.)))
+    print(f"Adding sentinel values for g-i and i-z colors for i-band dropouts {map_data['IZ_COLOR'][wsm].size:d} of {map_data['IZ_COLOR'].size:d} objects")
+    map_data['GI_COLOR'][wsm] = 99.
+    map_data['IZ_COLOR'][wsm] = 99.
 
     # Write a fits file with the record array
     fitsio.write(args.coadd_object_map, map_data, extname='OBJECTS', clobber=True)
     print(f"# Wrote COADD_OBJECT map to: {args.coadd_object_map}")
+
+    return 0
 
 
 if __name__ == "__main__":
@@ -99,6 +122,8 @@ if __name__ == "__main__":
                         help="Input file list with background images")
     parser.add_argument("--psf_flist", type=str, action="store", default=None,
                         help="Input file list with psfex model images")
+    parser.add_argument("--piff_flist", type=str, action="store", default=None,
+                        help="Input file list with PIFF model images")
     parser.add_argument("--hdr_flist", type=str, action="store", default=None,
                         help="Input file list with header files")
     parser.add_argument("--red_flist", type=str, action="store", default=None,
