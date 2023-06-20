@@ -28,6 +28,32 @@ def paste_files(file1, file2, output):
         out.write(f"{red} {hdr} {zp}\n")
 
 
+def mk_coadd_object_query(tablename,catname):
+    """ RAG: query has grown to be sufficiently complex that have instantiated it here
+          note left outer joins added in order that query can function when band data is missing entirely.
+    
+      inputs: tablename: COADD_OBJECT (like) table to draw objects from 
+             catname:   the band catalog appropriate for the images being worked on
+      output: co_query (the query to obtain said objects for object_map)
+    """
+    print(tablename)
+    print(catname)
+    co_query = """select c.OBJECT_NUMBER,c.ID,
+        nvl(g.mag_auto-i.mag_auto,99.) as gi_color, 
+        nvl(i.mag_auto-z.mag_auto,99.) as iz_color, 
+        nvl(g.mag_auto,99.) as g_mag, nvl(g.magerr_auto,99.) as g_magerr,
+        nvl(i.mag_auto,99.) as i_mag, nvl(i.magerr_auto,99.) as i_magerr,
+        nvl(z.mag_auto,99.) as z_mag, nvl(z.magerr_auto,99.) as z_magerr 
+    from {tname:} c
+        left outer join {tname} g on (c.id=g.id and g.band='g') 
+        left outer join {tname} i on (c.id=i.id and i.band='i') 
+        left outer join {tname} z on (c.id=z.id and z.band='z') 
+    where c.FILENAME='{cname}' 
+    order by object_number""".format(tname=tablename,cname=catname)
+
+    return co_query
+
+
 def make_coadd_object_map(args):
     """ Writes out a map between the SExtractor NUMBER and COADD_OBJECT.ID
     """
@@ -38,8 +64,9 @@ def make_coadd_object_map(args):
     # Get a dbh handle to query
     dbh = desdbi.DesDbi(section=args.db_section, retry=True)
     # Format and query with query2rec
-    # RAG updated query to return color information (2nd update adds multi-color info)
-    QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color, i.mag_auto-z.mag_auto as iz_color, g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr, z.mag_auto as z_mag, z.magerr_auto as z_magerr from {tablename} c, {tablename} g, {tablename} i, {tablename} z where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' and c.id=z.id and z.band='z' order by object_number"
+
+    QUERY_MAP = mk_coadd_object_query(tablename,catname)
+
     print("# Will query: ")
     print(QUERY_MAP)
     map_data = despyastro.query2rec(QUERY_MAP, dbhandle=dbh, verb=True)
@@ -50,8 +77,7 @@ def make_coadd_object_map(args):
         print(f"# WARNING: Query to {tablename} returned no objects, cannot create coadd_object map")
         tablename = 'COADD_OBJECT_SAVE'
 
-        # QUERY_MAP = "select OBJECT_NUMBER,ID from %s where FILENAME='%s' order by object_number" % (tablename,catname)
-        QUERY_MAP = f"select c.OBJECT_NUMBER,c.ID,g.mag_auto-i.mag_auto as gi_color, i.mag_auto-z.mag_auto as iz_color, g.mag_auto as g_mag,g.magerr_auto as g_magerr,i.mag_auto as i_mag, i.magerr_auto as i_magerr, z.mag_auto as z_mag, z.magerr_auto as z_magerr from {tablename} c, {tablename} g, {tablename} i, {tablename} z where c.FILENAME='{catname}' and c.id=g.id and g.band='g' and c.id=i.id and i.band='i' and c.id=z.id and z.band='z' order by object_number"
+        QUERY_MAP = mk_coadd_object_query(tablename,catname)
         print(f"# WARNING: Query to {tablename} returned no objects, cannot create coadd_object map")
         print(f"# Will try now {tablename}")
         print(QUERY_MAP)
@@ -170,8 +196,12 @@ if __name__ == "__main__":
         del data['coadd_object_map']
 
     # Paste the files toegether
-    paste_files(args.red_flist, args.hdr_flist, args.finalcut_flist)
-    print("Wrote file: ", args.finalcut_flist)
+    if ((args.red_flist is None)and(args.hdr_flist is None)):
+        print("Operating in COADD postage stamp-only mode.")
+        print("Attempting to skipping generation of {:}.".format(args.finalcut_flist))
+    else:
+        paste_files(args.red_flist, args.hdr_flist, args.finalcut_flist)
+        print("Wrote file: ", args.finalcut_flist)
 
     # Write the new yaml file, we pop from the dictionary
     tileconf = data.pop('tileconf', None)
