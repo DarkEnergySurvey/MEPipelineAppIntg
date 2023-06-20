@@ -412,24 +412,24 @@ if __name__ == "__main__":
 
     # Optional print a list of the location of the inputs
     if args.ima_list:
-        mepochmisc.write_textlist(dbh, ImgDict, args.ima_list, sel_band=args.sel_band, fields=['fullname', 'mag_zero'], verb=args.verbose)
+        mepochmisc.write_textlist(dbh, ImgDict, args.ima_list, archive_name=args.archive, sel_band=args.sel_band, fields=['fullname', 'mag_zero'], verb=args.verbose)
     if args.head_list:
-        mepochmisc.write_textlist(dbh, HeadDict, args.head_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
+        mepochmisc.write_textlist(dbh, HeadDict, args.head_list, archive_name=args.archive, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.bkg_list:
         if not args.bkgimg:
             print(f"Warning: No --bkgimg search requested.  Skipping write for --bkg_list {args.bkg_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, BkgDict, args.bkg_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, BkgDict, args.bkg_list, archive_name=args.archive, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.seg_list:
         if not args.segmap:
             print(f"Warning: No --segmap search requested.  Skipping write for --seg_list {args.seg_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, SegDict, args.seg_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, SegDict, args.seg_list, archive_name=args.archive, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
     if args.psf_list:
         if not args.psfmodel:
             print(f"Warning: No --psfmodel search requested.  Skipping write for --psf_list {args.psf_list:s}")
         else:
-            mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
+            mepochmisc.write_textlist(dbh, PsfDict, args.psf_list, archive_name=args.archive, sel_band=args.sel_band, fields=['fullname'], verb=args.verbose)
 
     if args.pizza_cutter_yaml:
         bands = args.bandlist.split(",")
