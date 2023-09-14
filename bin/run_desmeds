@@ -235,9 +235,11 @@ if __name__ == "__main__":
     # Run the code
     t0 = time.time()
     status = 0
-    if not args.dryrun:
+    if (not(args.dryrun)):
         sys.stdout.flush()
         status = subprocess.call(cmd, shell=True)
+    else:
+        print("No execution (dry run)")
 
     if status == 0:
         # Done
