@@ -13,10 +13,6 @@ import sys
 import despydb.desdbi
 
 #import yaml
-##from pixcorrect.PixCorrectDriver import filelist_to_list
-#import subprocess
-
-#import matplotlib.path
 #import fitsio
 #import numpy as np
 
@@ -147,7 +143,7 @@ def get_used_recs(ProvDict,dbh,dbSchema,verbose=0):
 ######################################################################################
 if (__name__ == "__main__"):
 
-    parser = argparse.ArgumentParser(description="Application to \"fix\" provenance that is Define list-based inputs to run (serially) many executions of coadd_nwgint")
+    parser = argparse.ArgumentParser(description="Application to \"fix\" provenance that is deficient when ussinig list-based inputs to run (serially) many executions of coadd_nwgint")
 
     parser.add_argument('--imglist', action='store', type=str, default=None, required=True,
                         help='List of image files to be processed')
