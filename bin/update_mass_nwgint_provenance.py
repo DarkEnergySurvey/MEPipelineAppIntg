@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# $Id: update_mass_nwgint_provenance.py v1.0 2023-10-04 16:26:23Z rgruendl $
+"""
+Code to add provenance information to OPM_WAS_DERIVED_FROM when pipelines 
+use mass_coadd_nwgint (rather than coadd_nwgint)
+"""
 
 import argparse
 import time
